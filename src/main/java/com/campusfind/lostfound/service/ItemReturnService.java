@@ -1,94 +1,82 @@
 package com.campusfind.lostfound.service;
 
-import com.campusfind.lostfound.dto.ItemReturnRequest;
+import com.campusfind.lostfound.dao.ClaimDao;
+import com.campusfind.lostfound.dao.FoundItemDao;
+import com.campusfind.lostfound.dao.ItemReturnDao;
+import com.campusfind.lostfound.dao.LostItemDao;
 import com.campusfind.lostfound.model.*;
-import com.campusfind.lostfound.repository.ClaimRepository;
-import com.campusfind.lostfound.repository.FoundItemRepository;
-import com.campusfind.lostfound.repository.ItemReturnRepository;
-import com.campusfind.lostfound.repository.LostItemRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
-@Service
 public class ItemReturnService {
 
-    private final ItemReturnRepository itemReturnRepository;
-    private final ClaimRepository claimRepository;
-    private final FoundItemRepository foundItemRepository;
-    private final LostItemRepository lostItemRepository;
-    private final NotificationService notificationService;
+    private static final ItemReturnService INSTANCE = new ItemReturnService();
+    private final ItemReturnDao itemReturnDao = new ItemReturnDao();
+    private final ClaimDao claimDao = new ClaimDao();
+    private final FoundItemDao foundItemDao = new FoundItemDao();
+    private final LostItemDao lostItemDao = new LostItemDao();
+    private final NotificationService notificationService = NotificationService.getInstance();
+    private final List<Runnable> changeListeners = new ArrayList<>();
 
-    public ItemReturnService(ItemReturnRepository itemReturnRepository,
-                             ClaimRepository claimRepository,
-                             FoundItemRepository foundItemRepository,
-                             LostItemRepository lostItemRepository,
-                             NotificationService notificationService) {
-        this.itemReturnRepository = itemReturnRepository;
-        this.claimRepository = claimRepository;
-        this.foundItemRepository = foundItemRepository;
-        this.lostItemRepository = lostItemRepository;
-        this.notificationService = notificationService;
+    private ItemReturnService() {}
+
+    public static ItemReturnService getInstance() {
+        return INSTANCE;
     }
 
-    @Transactional
-    public ItemReturn processHandover(ItemReturnRequest request, User admin) {
-        Claim claim = claimRepository.findById(request.getClaimId())
-                .orElseThrow(() -> new IllegalArgumentException("Claim not found with ID: " + request.getClaimId()));
-
-        if (claim.getStatus() == ClaimStatus.RETURNED) {
-            throw new IllegalArgumentException("This item has already been marked as returned");
-        }
+    public ItemReturn executeHandover(Claim claim, String handoverNotes, User adminUser) {
+        if (claim == null || adminUser == null) return null;
 
         FoundItem foundItem = claim.getFoundItem();
         User claimant = claim.getClaimant();
 
-        // Update statuses
-        claim.setStatus(ClaimStatus.RETURNED);
-        claimRepository.save(claim);
+        // 1. Create audit trail record
+        ItemReturn itemReturn = new ItemReturn(claim, foundItem, claimant, adminUser, handoverNotes);
+        ItemReturn saved = itemReturnDao.save(itemReturn);
 
-        foundItem.setStatus(FoundStatus.RETURNED);
-        foundItemRepository.save(foundItem);
+        // 2. Mark Claim as RETURNED
+        claimDao.updateStatusAndRemarks(claim.getClaimId(), ClaimStatus.RETURNED, "Handover completed by " + adminUser.getFullName() + ". Notes: " + handoverNotes);
 
-        // If claimant had a matching active lost item, mark it RESOLVED
-        List<LostItem> claimantLostItems = lostItemRepository.findByUserOrderByCreatedAtDesc(claimant);
+        // 3. Mark Found Item as RETURNED
+        foundItemDao.updateStatus(foundItem.getFoundId(), FoundStatus.RETURNED);
+
+        // 4. Resolve any matching lost item reported by this claimant
+        List<LostItem> claimantLostItems = lostItemDao.findByUserId(claimant.getUserId());
         for (LostItem lost : claimantLostItems) {
             if (lost.getStatus() == LostStatus.REPORTED && lost.getCategory() == foundItem.getCategory()) {
-                lost.setStatus(LostStatus.RESOLVED);
-                lostItemRepository.save(lost);
-                break;
+                lostItemDao.updateStatus(lost.getLostId(), LostStatus.RESOLVED);
             }
         }
 
-        // Save return record
-        ItemReturn itemReturn = new ItemReturn(
-                claim,
-                foundItem,
-                claimant,
-                admin,
-                request.getHandoverNotes() != null ? request.getHandoverNotes().trim() : "Handover completed at security desk."
-        );
-        ItemReturn savedReturn = itemReturnRepository.save(itemReturn);
-
-        // Send completion notification
+        // 5. Send notification to claimant
         notificationService.sendNotification(
                 claimant,
-                "Item Successfully Recovered!",
-                "Great news! Your item '" + foundItem.getItemName() +
-                "' was successfully returned to you. The recovery case is now officially completed and closed.",
+                "Handover Complete: " + foundItem.getItemName(),
+                "Your item has been successfully handed over and verified by Campus Administration. Case closed.",
                 NotificationType.CLAIM_UPDATE,
-                savedReturn.getReturnId()
+                saved.getReturnId()
         );
 
-        return savedReturn;
+        notifyChangeListeners();
+        return saved;
     }
 
     public List<ItemReturn> getAllReturns() {
-        return itemReturnRepository.findAllByOrderByHandoverTimestampDesc();
+        return itemReturnDao.findAll();
     }
 
-    public List<ItemReturn> getUserReturns(User user) {
-        return itemReturnRepository.findByReturnedToUserOrderByHandoverTimestampDesc(user);
+    public void addChangeListener(Runnable listener) {
+        changeListeners.add(listener);
+    }
+
+    private void notifyChangeListeners() {
+        for (Runnable listener : changeListeners) {
+            try {
+                listener.run();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
     }
 }

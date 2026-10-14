@@ -1,45 +1,18 @@
 package com.campusfind.lostfound.model;
 
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "item_returns")
 public class ItemReturn {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "return_id")
     private Long returnId;
-
-    @OneToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "claim_id", nullable = false, unique = true)
     private Claim claim;
-
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "found_id", nullable = false)
     private FoundItem foundItem;
-
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "returned_to_user_id", nullable = false)
     private User returnedToUser;
-
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "processed_by_admin_id", nullable = false)
     private User processedByAdmin;
-
-    @Column(name = "handover_timestamp", updatable = false)
     private LocalDateTime handoverTimestamp;
-
-    @Column(name = "handover_notes", columnDefinition = "TEXT")
     private String handoverNotes;
 
-    @PrePersist
-    protected void onCreate() {
-        this.handoverTimestamp = LocalDateTime.now();
-    }
-
     public ItemReturn() {
+        this.handoverTimestamp = LocalDateTime.now();
     }
 
     public ItemReturn(Claim claim, FoundItem foundItem, User returnedToUser, User processedByAdmin, String handoverNotes) {
@@ -48,6 +21,7 @@ public class ItemReturn {
         this.returnedToUser = returnedToUser;
         this.processedByAdmin = processedByAdmin;
         this.handoverNotes = handoverNotes;
+        this.handoverTimestamp = LocalDateTime.now();
     }
 
     public Long getReturnId() {

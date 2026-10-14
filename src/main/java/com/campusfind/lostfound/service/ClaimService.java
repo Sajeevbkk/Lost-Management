@@ -1,133 +1,143 @@
 package com.campusfind.lostfound.service;
 
-import com.campusfind.lostfound.dto.ClaimRequest;
-import com.campusfind.lostfound.dto.ClaimReviewRequest;
+import com.campusfind.lostfound.dao.ClaimDao;
+import com.campusfind.lostfound.dao.FoundItemDao;
 import com.campusfind.lostfound.model.*;
-import com.campusfind.lostfound.repository.ClaimRepository;
-import com.campusfind.lostfound.repository.FoundItemRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
-@Service
 public class ClaimService {
 
-    private final ClaimRepository claimRepository;
-    private final FoundItemRepository foundItemRepository;
-    private final NotificationService notificationService;
+    private static final ClaimService INSTANCE = new ClaimService();
+    private final ClaimDao claimDao = new ClaimDao();
+    private final FoundItemDao foundItemDao = new FoundItemDao();
+    private final NotificationService notificationService = NotificationService.getInstance();
+    private final List<Runnable> changeListeners = new ArrayList<>();
 
-    public ClaimService(ClaimRepository claimRepository,
-                        FoundItemRepository foundItemRepository,
-                        NotificationService notificationService) {
-        this.claimRepository = claimRepository;
-        this.foundItemRepository = foundItemRepository;
-        this.notificationService = notificationService;
+    private ClaimService() {}
+
+    public static ClaimService getInstance() {
+        return INSTANCE;
     }
 
-    @Transactional
-    public Claim submitClaim(ClaimRequest request, User claimant) {
-        FoundItem foundItem = foundItemRepository.findById(request.getFoundId())
-                .orElseThrow(() -> new IllegalArgumentException("Found item not found"));
-
-        if (foundItem.getStatus() == FoundStatus.RETURNED) {
-            throw new IllegalArgumentException("This item has already been returned to its owner");
-        }
-
-        if (foundItem.getUser().getUserId().equals(claimant.getUserId())) {
-            throw new IllegalArgumentException("You reported this found item; you cannot file a claim against your own report");
-        }
-
-        if (claimRepository.existsByFoundItemAndClaimant(foundItem, claimant)) {
-            throw new IllegalArgumentException("You have already submitted a claim for this item");
-        }
-
+    public Claim submitClaim(FoundItem foundItem, User claimant, String descProof, String features,
+                             LocalDate approxDateLost, String approxLocationLost, String supportingProof) {
         Claim claim = new Claim();
         claim.setFoundItem(foundItem);
         claim.setClaimant(claimant);
-        claim.setItemDescriptionProof(request.getItemDescriptionProof().trim());
-        claim.setUniqueIdentifyingFeatures(request.getUniqueIdentifyingFeatures().trim());
-        claim.setApproxDateLost(request.getApproxDateLost());
-        claim.setApproxLocationLost(request.getApproxLocationLost().trim());
-        claim.setSupportingProofDetails(request.getSupportingProofDetails() != null ? request.getSupportingProofDetails().trim() : "");
+        claim.setItemDescriptionProof(descProof);
+        claim.setUniqueIdentifyingFeatures(features);
+        claim.setApproxDateLost(approxDateLost);
+        claim.setApproxLocationLost(approxLocationLost);
+        claim.setSupportingProofDetails(supportingProof);
         claim.setStatus(ClaimStatus.PENDING);
+        claim.setAdminRemarks("Claim submitted. Awaiting administrative review.");
 
-        Claim savedClaim = claimRepository.save(claim);
+        Claim saved = claimDao.save(claim);
 
         // Update found item status to CLAIM_PENDING
-        foundItem.setStatus(FoundStatus.CLAIM_PENDING);
-        foundItemRepository.save(foundItem);
+        foundItemDao.updateStatus(foundItem.getFoundId(), FoundStatus.CLAIM_PENDING);
 
-        // Notify claimant
+        // Send notification to claimant
         notificationService.sendNotification(
                 claimant,
-                "Claim Submitted Successfully",
-                "Your ownership claim for '" + foundItem.getItemName() + "' was recorded with Reference #" +
-                savedClaim.getClaimId() + ". An administrator will review your identifying details shortly.",
+                "Claim Submitted: " + foundItem.getItemName(),
+                "Your ownership claim has been submitted. Campus security will review your confidential identifying evidence.",
                 NotificationType.CLAIM_UPDATE,
-                savedClaim.getClaimId()
+                saved.getClaimId()
         );
 
-        return savedClaim;
+        notifyChangeListeners();
+        return saved;
     }
 
-    @Transactional
-    public Claim reviewClaim(Long claimId, ClaimReviewRequest request, User admin) {
-        Claim claim = claimRepository.findById(claimId)
-                .orElseThrow(() -> new IllegalArgumentException("Claim not found with ID: " + claimId));
+    public void reviewClaim(Long claimId, ClaimStatus newStatus, String adminRemarks, User adminUser) {
+        Claim claim = claimDao.findById(claimId);
+        if (claim == null) return;
 
-        claim.setStatus(request.getStatus());
-        claim.setAdminRemarks(request.getAdminRemarks());
-        Claim updated = claimRepository.save(claim);
+        claimDao.updateStatusAndRemarks(claimId, newStatus, adminRemarks);
 
         FoundItem item = claim.getFoundItem();
-
-        if (request.getStatus() == ClaimStatus.APPROVED) {
+        if (newStatus == ClaimStatus.APPROVED) {
             notificationService.sendNotification(
                     claim.getClaimant(),
-                    "Claim Approved! Collect Your Item",
-                    "Your claim for '" + item.getItemName() + "' has been approved by campus administration. Please visit " +
-                    item.getStorageLocation() + " with your Student/Staff ID (" + claim.getClaimant().getCampusId() + ") for physical handover.",
+                    "Claim Approved: " + item.getItemName(),
+                    "Your claim has been APPROVED! Please visit " + item.getStorageLocation() +
+                            " with your Campus ID to collect your item. Remarks: " + adminRemarks,
                     NotificationType.CLAIM_UPDATE,
-                    claim.getClaimId()
+                    claimId
             );
-        } else if (request.getStatus() == ClaimStatus.REJECTED) {
-            // Revert found item to AVAILABLE if no other claims are pending
-            item.setStatus(FoundStatus.AVAILABLE);
-            foundItemRepository.save(item);
+        } else if (newStatus == ClaimStatus.REJECTED) {
+            // Check if any other claims are active on this found item
+            List<Claim> allClaims = claimDao.findByFoundItemId(item.getFoundId());
+            boolean hasOtherActive = allClaims.stream().anyMatch(c ->
+                    !c.getClaimId().equals(claimId) &&
+                    (c.getStatus() == ClaimStatus.PENDING || c.getStatus() == ClaimStatus.UNDER_VERIFICATION || c.getStatus() == ClaimStatus.APPROVED));
+            if (!hasOtherActive) {
+                foundItemDao.updateStatus(item.getFoundId(), FoundStatus.AVAILABLE);
+            }
 
             notificationService.sendNotification(
                     claim.getClaimant(),
-                    "Claim Decision Notice",
-                    "Your claim for '" + item.getItemName() + "' was not approved. Remarks: " +
-                    (request.getAdminRemarks() != null ? request.getAdminRemarks() : "Identifying details did not verify."),
+                    "Claim Update: " + item.getItemName(),
+                    "Your claim was not approved. Remarks: " + (adminRemarks != null && !adminRemarks.isEmpty() ? adminRemarks : "Details did not match stored evidence."),
                     NotificationType.CLAIM_UPDATE,
-                    claim.getClaimId()
+                    claimId
             );
-        } else if (request.getStatus() == ClaimStatus.UNDER_VERIFICATION) {
+        } else if (newStatus == ClaimStatus.UNDER_VERIFICATION) {
             notificationService.sendNotification(
                     claim.getClaimant(),
-                    "Claim Under Verification",
-                    "Your claim for '" + item.getItemName() + "' is actively being audited by campus security. Remarks: " +
-                    (request.getAdminRemarks() != null ? request.getAdminRemarks() : "Under verification."),
+                    "Claim Under Verification: " + item.getItemName(),
+                    "Your claim is currently under physical verification. Admin note: " + adminRemarks,
                     NotificationType.CLAIM_UPDATE,
-                    claim.getClaimId()
+                    claimId
             );
         }
 
-        return updated;
+        notifyChangeListeners();
     }
 
-    public List<Claim> getUserClaims(User user) {
-        return claimRepository.findByClaimantOrderBySubmittedAtDesc(user);
+    public List<Claim> getClaimsByClaimant(Long userId) {
+        return claimDao.findByClaimantId(userId);
+    }
+
+    public List<Claim> getClaimsByFoundItem(Long foundId) {
+        return claimDao.findByFoundItemId(foundId);
     }
 
     public List<Claim> getAllClaims() {
-        return claimRepository.findAllByOrderBySubmittedAtDesc();
+        return claimDao.findAll();
+    }
+
+    public List<Claim> getPendingClaims() {
+        List<Claim> pending = claimDao.findByStatus(ClaimStatus.PENDING);
+        List<Claim> underVerif = claimDao.findByStatus(ClaimStatus.UNDER_VERIFICATION);
+        List<Claim> combined = new ArrayList<>(pending);
+        combined.addAll(underVerif);
+        return combined;
+    }
+
+    public List<Claim> getApprovedClaims() {
+        return claimDao.findByStatus(ClaimStatus.APPROVED);
     }
 
     public Claim getClaimById(Long claimId) {
-        return claimRepository.findById(claimId)
-                .orElseThrow(() -> new IllegalArgumentException("Claim not found with ID: " + claimId));
+        return claimDao.findById(claimId);
+    }
+
+    public void addChangeListener(Runnable listener) {
+        changeListeners.add(listener);
+    }
+
+    private void notifyChangeListeners() {
+        for (Runnable listener : changeListeners) {
+            try {
+                listener.run();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
     }
 }

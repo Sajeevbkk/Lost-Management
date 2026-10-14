@@ -1,63 +1,25 @@
 package com.campusfind.lostfound.model;
 
-import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "lost_items")
 public class LostItem {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "lost_id")
     private Long lostId;
-
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "user_id", nullable = false)
     private User user;
-
-    @Column(name = "item_name", nullable = false, length = 100)
     private String itemName;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "category", nullable = false, length = 30)
     private Category category;
-
-    @Column(name = "description", nullable = false, columnDefinition = "TEXT")
     private String description;
-
-    @Column(name = "date_lost", nullable = false)
     private LocalDate dateLost;
-
-    @Column(name = "location_lost", nullable = false, length = 150)
     private String locationLost;
-
-    @Column(name = "color_features", nullable = false, length = 150)
     private String colorFeatures;
-
-    @Column(name = "image_url", length = 255)
     private String imageUrl;
-
-    @Column(name = "contact_phone", nullable = false, length = 20)
     private String contactPhone;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status", length = 20)
     private LostStatus status = LostStatus.REPORTED;
-
-    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        if (this.status == null) {
-            this.status = LostStatus.REPORTED;
-        }
-    }
-
     public LostItem() {
+        this.createdAt = LocalDateTime.now();
+        this.status = LostStatus.REPORTED;
     }
 
     public Long getLostId() {
@@ -154,5 +116,10 @@ public class LostItem {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    @Override
+    public String toString() {
+        return itemName + " [" + (category != null ? category.name() : "") + "]";
     }
 }

@@ -1,50 +1,20 @@
 package com.campusfind.lostfound.model;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "users")
 public class User {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "user_id")
     private Long userId;
-
-    @Column(name = "full_name", nullable = false, length = 100)
     private String fullName;
-
-    @Column(name = "college_email", nullable = false, unique = true, length = 120)
     private String collegeEmail;
-
-    @Column(name = "campus_id", nullable = false, unique = true, length = 50)
     private String campusId;
-
-    @Column(name = "department", nullable = false, length = 80)
     private String department;
-
-    @Column(name = "phone_number", nullable = false, length = 20)
     private String phoneNumber;
-
-    @JsonIgnore
-    @Column(name = "password_hash", nullable = false)
     private String passwordHash;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "role", nullable = false, length = 20)
     private Role role = Role.STUDENT;
-
-    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-    }
-
     public User() {
+        this.createdAt = LocalDateTime.now();
     }
 
     public User(String fullName, String collegeEmail, String campusId, String department, String phoneNumber, String passwordHash, Role role) {
@@ -54,7 +24,8 @@ public class User {
         this.department = department;
         this.phoneNumber = phoneNumber;
         this.passwordHash = passwordHash;
-        this.role = role;
+        this.role = role != null ? role : Role.STUDENT;
+        this.createdAt = LocalDateTime.now();
     }
 
     public Long getUserId() {
@@ -127,5 +98,10 @@ public class User {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    @Override
+    public String toString() {
+        return fullName + " (" + campusId + " - " + role + ")";
     }
 }

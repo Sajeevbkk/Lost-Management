@@ -1,49 +1,20 @@
 package com.campusfind.lostfound.model;
 
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "notifications")
 public class Notification {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "notification_id")
     private Long notificationId;
-
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "user_id", nullable = false)
     private User user;
-
-    @Column(name = "title", nullable = false, length = 150)
     private String title;
-
-    @Column(name = "message", nullable = false, columnDefinition = "TEXT")
     private String message;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "type", nullable = false, length = 30)
     private NotificationType type;
-
-    @Column(name = "reference_id")
     private Long referenceId;
-
-    @Column(name = "is_read")
     private Boolean isRead = false;
-
-    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        if (this.isRead == null) {
-            this.isRead = false;
-        }
-    }
-
     public Notification() {
+        this.createdAt = LocalDateTime.now();
+        this.isRead = false;
     }
 
     public Notification(User user, String title, String message, NotificationType type, Long referenceId) {
@@ -53,6 +24,7 @@ public class Notification {
         this.type = type;
         this.referenceId = referenceId;
         this.isRead = false;
+        this.createdAt = LocalDateTime.now();
     }
 
     public Long getNotificationId() {
@@ -104,7 +76,7 @@ public class Notification {
     }
 
     public Boolean getIsRead() {
-        return isRead;
+        return isRead != null ? isRead : false;
     }
 
     public void setIsRead(Boolean isRead) {

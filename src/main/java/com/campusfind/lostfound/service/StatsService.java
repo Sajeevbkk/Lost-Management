@@ -1,51 +1,65 @@
 package com.campusfind.lostfound.service;
 
-import com.campusfind.lostfound.dto.StatsSummaryDto;
+import com.campusfind.lostfound.dao.ClaimDao;
+import com.campusfind.lostfound.dao.FoundItemDao;
+import com.campusfind.lostfound.dao.LostItemDao;
+import com.campusfind.lostfound.model.Claim;
 import com.campusfind.lostfound.model.ClaimStatus;
+import com.campusfind.lostfound.model.FoundItem;
 import com.campusfind.lostfound.model.FoundStatus;
-import com.campusfind.lostfound.repository.ClaimRepository;
-import com.campusfind.lostfound.repository.FoundItemRepository;
-import com.campusfind.lostfound.repository.LostItemRepository;
-import com.campusfind.lostfound.repository.UserRepository;
-import org.springframework.stereotype.Service;
+import com.campusfind.lostfound.model.LostItem;
 
-@Service
+import java.util.List;
+
 public class StatsService {
 
-    private final LostItemRepository lostItemRepository;
-    private final FoundItemRepository foundItemRepository;
-    private final ClaimRepository claimRepository;
-    private final UserRepository userRepository;
-    private final MatchingService matchingService;
+    private static final StatsService INSTANCE = new StatsService();
+    private final LostItemDao lostItemDao = new LostItemDao();
+    private final FoundItemDao foundItemDao = new FoundItemDao();
+    private final ClaimDao claimDao = new ClaimDao();
 
-    public StatsService(LostItemRepository lostItemRepository,
-                        FoundItemRepository foundItemRepository,
-                        ClaimRepository claimRepository,
-                        UserRepository userRepository,
-                        MatchingService matchingService) {
-        this.lostItemRepository = lostItemRepository;
-        this.foundItemRepository = foundItemRepository;
-        this.claimRepository = claimRepository;
-        this.userRepository = userRepository;
-        this.matchingService = matchingService;
+    private StatsService() {}
+
+    public static StatsService getInstance() {
+        return INSTANCE;
     }
 
-    public StatsSummaryDto getSummaryStats() {
-        long totalLost = lostItemRepository.count();
-        long totalFound = foundItemRepository.count();
-        long totalReturned = foundItemRepository.countByStatus(FoundStatus.RETURNED);
-        long pendingClaims = claimRepository.countByStatus(ClaimStatus.PENDING)
-                + claimRepository.countByStatus(ClaimStatus.UNDER_VERIFICATION);
-        long totalUsers = userRepository.count();
-        long potentialMatches = matchingService.getAllPotentialMatches().size();
+    public int getTotalLost() {
+        return lostItemDao.findAll().size();
+    }
 
-        return new StatsSummaryDto(
-                totalLost,
-                totalFound,
-                totalReturned,
-                pendingClaims,
-                totalUsers,
-                potentialMatches
-        );
+    public int getTotalFound() {
+        return foundItemDao.findAll().size();
+    }
+
+    public int getTotalReturned() {
+        List<FoundItem> found = foundItemDao.findAll();
+        int count = 0;
+        for (FoundItem f : found) {
+            if (f.getStatus() == FoundStatus.RETURNED) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    public int getActiveClaims() {
+        List<Claim> claims = claimDao.findAll();
+        int count = 0;
+        for (Claim c : claims) {
+            if (c.getStatus() == ClaimStatus.PENDING ||
+                c.getStatus() == ClaimStatus.UNDER_VERIFICATION ||
+                c.getStatus() == ClaimStatus.APPROVED) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    public double getRecoveryRate() {
+        int totalFound = getTotalFound();
+        int returned = getTotalReturned();
+        if (totalFound == 0) return 0.0;
+        return ((double) returned / totalFound) * 100.0;
     }
 }

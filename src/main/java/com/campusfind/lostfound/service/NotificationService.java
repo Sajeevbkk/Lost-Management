@@ -1,54 +1,63 @@
 package com.campusfind.lostfound.service;
 
+import com.campusfind.lostfound.dao.NotificationDao;
 import com.campusfind.lostfound.model.Notification;
 import com.campusfind.lostfound.model.NotificationType;
 import com.campusfind.lostfound.model.User;
-import com.campusfind.lostfound.repository.NotificationRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
-@Service
 public class NotificationService {
 
-    private final NotificationRepository notificationRepository;
+    private static final NotificationService INSTANCE = new NotificationService();
+    private final NotificationDao notificationDao = new NotificationDao();
+    private final List<Runnable> notificationListeners = new ArrayList<>();
 
-    public NotificationService(NotificationRepository notificationRepository) {
-        this.notificationRepository = notificationRepository;
+    private NotificationService() {}
+
+    public static NotificationService getInstance() {
+        return INSTANCE;
     }
 
-    @Transactional
-    public Notification sendNotification(User user, String title, String message, NotificationType type, Long referenceId) {
-        Notification notification = new Notification(user, title, message, type, referenceId);
-        return notificationRepository.save(notification);
+    public void sendNotification(User user, String title, String message, NotificationType type, Long referenceId) {
+        if (user == null) return;
+        Notification n = new Notification(user, title, message, type, referenceId);
+        notificationDao.save(n);
+        notifyListeners();
     }
 
-    public List<Notification> getUserNotifications(User user) {
-        return notificationRepository.findByUserOrderByCreatedAtDesc(user);
+    public List<Notification> getNotificationsForUser(Long userId) {
+        if (userId == null) return new ArrayList<>();
+        return notificationDao.findByUserId(userId);
     }
 
-    public long getUnreadCount(User user) {
-        return notificationRepository.countByUserAndIsReadFalse(user);
+    public int getUnreadCount(Long userId) {
+        if (userId == null) return 0;
+        return notificationDao.countUnreadByUserId(userId);
     }
 
-    @Transactional
-    public void markAsRead(Long notificationId, User user) {
-        Notification notification = notificationRepository.findById(notificationId)
-                .orElseThrow(() -> new IllegalArgumentException("Notification not found"));
-        if (!notification.getUser().getUserId().equals(user.getUserId())) {
-            throw new IllegalArgumentException("Unauthorized to modify this notification");
+    public void markAsRead(Long notificationId) {
+        notificationDao.markAsRead(notificationId);
+        notifyListeners();
+    }
+
+    public void markAllAsRead(Long userId) {
+        notificationDao.markAllAsRead(userId);
+        notifyListeners();
+    }
+
+    public void addNotificationListener(Runnable listener) {
+        notificationListeners.add(listener);
+    }
+
+    private void notifyListeners() {
+        for (Runnable listener : notificationListeners) {
+            try {
+                listener.run();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
-        notification.setIsRead(true);
-        notificationRepository.save(notification);
-    }
-
-    @Transactional
-    public void markAllAsRead(User user) {
-        List<Notification> unread = notificationRepository.findByUserAndIsReadFalseOrderByCreatedAtDesc(user);
-        for (Notification n : unread) {
-            n.setIsRead(true);
-        }
-        notificationRepository.saveAll(unread);
     }
 }

@@ -1,43 +1,53 @@
-# Smart Lost and Found Management System (CampusFind)
+# Smart Lost and Found Management System (CampusFind Desktop)
 
-A modern, responsive, full-stack campus web application engineered to centralize, streamline, and secure the process of reporting, discovering, verifying, and recovering lost personal belongings across university campuses.
+A modern, responsive, pure **Java Swing Desktop Application** engineered to centralize, streamline, and secure the process of reporting, discovering, verifying, and recovering lost personal belongings across university campuses.
+
+> **Note**: This application is a **100% pure Java desktop application** (No Spring Boot, no external web server required). It runs natively on the desktop with an embedded zero-configuration database and modern FlatLaf UI.
 
 ---
 
 ## 1. Key Features
 
-- **College-Oriented Design System**: Clean responsive layout featuring a **Navy Blue, Purple, and White** color theme.
-- **Role-Based Security**: Secure JWT authentication and BCrypt password encryption for Students, Faculty/Staff, and Campus Administrators.
-- **Lost & Found Reporting**: Intuitive forms with file upload support, category classification, campus location tagging, and safe collection desks.
-- **Smart AI Matching Engine**: Multi-factor similarity scoring (Category hard gate, Levenshtein title distance, campus proximity, date consistency, and color/feature token overlap).
-- **Automated Alerts & Notifications**: Real-time in-app alerts sent when similarity score exceeds 60% or when ownership claims are reviewed.
-- **Two-Tier Verification Pipeline**: Claimants furnish confidential unlisted identifying details (serial numbers, internal contents, lock screens). No automated release; physical handover audited by administrators.
-- **Physical Handover Audit Trail**: Completed returns logged in MySQL `item_returns` table with verified student ID signoff and admin notes.
+- **College-Oriented Design System**: Modern desktop UI featuring the **Navy Blue (`#1E3A8A`), Purple (`#7C3AED`), and White** theme styled with FlatLaf.
+- **Role-Based Desktop Security**: BCrypt password encryption for Students, Faculty/Staff, and Campus Administrators, plus 1-click demo profile switching.
+- **Lost & Found Reporting**: Modal dialogs with category classification, campus location tagging, color/identifying attributes, and safe storage pickup desks.
+- **Smart AI Matching Engine**: Multi-factor similarity scoring:
+  - Category Hard Gate (30% Baseline)
+  - Title Similarity (25% Weight, Levenshtein distance + Jaccard index)
+  - Campus Location Proximity (20% Weight)
+  - Chronological Closeness (15% Weight)
+  - Color & Description Token Overlap (10% Weight)
+  - Score Tiers: **HIGH (≥75%)**, **MEDIUM (≥60%)**, **LOW (<60%)**
+- **Automated Alerts & Notifications**: Real-time notification center with live unread badge for potential matches and claim review updates.
+- **Two-Tier Verification Pipeline**: Claimants furnish confidential unlisted identifying details (serial numbers, internal contents, lock screens). Physical handover audited and confirmed by administrators.
+- **Physical Handover Audit Trail**: Completed returns recorded in `item_returns` table with verified student ID signoff and admin notes.
 - **Interactive Dashboards**:
-  - **User Dashboard**: Track reported lost items, cataloged found belongings, submitted claims progress stepper, personal matches, and notification inbox.
-  - **Admin Console**: Moderate reports, review claims with secret evidence, conduct physical handovers, and browse campus user directory.
+  - **Home Dashboard**: Live university recovery stats (Total Lost, Total Found, Successful Returns, Active Claims, Recovery Rate %), Quick Search, and Recent Items.
+  - **User Dashboard**: Track reported lost items, cataloged found belongings, and active ownership claims with a visual 4-step progress stepper (`Submitted -> Under Verification -> Approved -> Handover Complete`).
+  - **Admin Console**: Moderate claims, review secret proof, execute physical handovers, and browse campus user directory.
 
 ---
 
 ## 2. Technology Stack
 
-- **Backend**: Java 21, Spring Boot 3.3.5
-- **ORM / Persistence**: Spring Data JPA, Hibernate, MySQL Connector/J
-- **Security**: Spring Security 6, JJWT (io.jsonwebtoken 0.12.6), BCrypt
-- **Database**: MySQL 8.0 (`smart_lost_found_db`)
-- **Frontend**: Responsive HTML5, CSS3 (Custom Variables, Flexbox, Grid), JavaScript (Vanilla ES6+ Fetch API, Single-Page routing)
+- **UI Framework**: Java Swing (Pure Desktop, no Spring Boot)
+- **Look and Feel**: FlatLaf 3.5.4 (Modern Flat UI with High-DPI support)
+- **Runtime**: Java 21+ (Tested on JDK 21 and JDK 26)
+- **Build Tool**: Apache Maven 3.9+
+- **Persistence**: Pure JDBC with embedded H2 Database (`./data/campusfind_db.mv.db`, MySQL compatibility mode) — zero external setup required!
+- **Security**: jBCrypt (0.4) for password hashing
 
 ---
 
-## 3. Database Schema (`smart_lost_found_db`)
+## 3. Database Schema
 
-The database consists of 6 relational tables:
+The database consists of 6 relational tables managed via embedded JDBC:
 1. `users`: Stores campus members (Student, Staff, Admin) with encrypted credentials.
 2. `lost_items`: Stores missing item reports with contact info, status (`REPORTED`, `RESOLVED`, `CLOSED`).
 3. `found_items`: Stores discovered items with safe storage pickup point (`AVAILABLE`, `CLAIM_PENDING`, `RETURNED`).
 4. `claims`: Ownership claims with confidential proof and verification status (`PENDING`, `UNDER_VERIFICATION`, `APPROVED`, `REJECTED`, `RETURNED`).
-5. `notifications`: Alert records for potential matches, claim reviews, and admin updates.
-6. `item_returns`: Immutable audit trail for physical handovers with admin signature and timestamp.
+5. `item_returns`: Immutable audit trail for physical handovers with admin signature and timestamp.
+6. `notifications`: Alert records for potential matches, claim reviews, and admin updates.
 
 ---
 
@@ -60,37 +70,14 @@ The system automatically initializes seed data on startup. You can sign in using
 ### Prerequisites
 - JDK 21 or higher installed
 - Apache Maven 3.9+ installed
-- MySQL 8.0 running on `localhost:3306` with database `smart_lost_found_db`
 
-### Start Application
+### Option A: Run directly via Maven
 ```powershell
-mvn spring-boot:run
+mvn clean compile exec:java
 ```
 
-The web application will be accessible at:
+### Option B: Build and run standalone fat JAR
+```powershell
+mvn clean package -DskipTests
+java -jar target/campusfind-desktop-1.0.0.jar
 ```
-http://localhost:8080
-```
-
----
-
-## 6. REST API Endpoints Overview
-
-| Method | Endpoint | Access | Purpose |
-| :--- | :--- | :--- | :--- |
-| `POST` | `/api/v1/auth/register` | Public | Register student or faculty member |
-| `POST` | `/api/v1/auth/login` | Public | Authenticate user, receive JWT token |
-| `GET` | `/api/v1/items/lost` | Public | Search and filter lost items |
-| `POST` | `/api/v1/items/lost` | Authenticated | Report missing item (triggers match scan) |
-| `GET` | `/api/v1/items/found` | Public | Search and filter found items |
-| `POST` | `/api/v1/items/found` | Authenticated | Report found item (triggers match scan) |
-| `POST` | `/api/v1/claims` | Authenticated | Submit ownership claim with secret proof |
-| `GET` | `/api/v1/claims/my` | Authenticated | View submitted claims & recovery progress |
-| `GET` | `/api/v1/matches/my` | Authenticated | View matches for user's reports |
-| `GET` | `/api/v1/matches/public` | Public | View active campus matches |
-| `GET` | `/api/v1/notifications` | Authenticated | Fetch notifications and alerts |
-| `GET` | `/api/v1/admin/claims` | Admin Only | Inspect incoming ownership claims |
-| `PUT` | `/api/v1/admin/claims/{id}/review` | Admin Only | Approve, reject, or verify claims |
-| `POST` | `/api/v1/admin/returns` | Admin Only | Log physical handover and close case |
-| `GET` | `/api/v1/admin/users` | Admin Only | Manage campus user accounts |
-| `GET` | `/api/v1/stats/summary` | Public | Aggregated counts of lost, found, returned |

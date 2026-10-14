@@ -1,39 +1,39 @@
 package com.campusfind.lostfound.service;
 
-import com.campusfind.lostfound.dto.MatchResultDto;
+import com.campusfind.lostfound.dao.FoundItemDao;
+import com.campusfind.lostfound.dao.LostItemDao;
 import com.campusfind.lostfound.model.*;
-import com.campusfind.lostfound.repository.FoundItemRepository;
-import com.campusfind.lostfound.repository.LostItemRepository;
 import com.campusfind.lostfound.util.SimilarityUtil;
-import org.springframework.stereotype.Service;
 
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
-@Service
 public class MatchingService {
 
-    private final LostItemRepository lostItemRepository;
-    private final FoundItemRepository foundItemRepository;
-    private final NotificationService notificationService;
+    private static final MatchingService INSTANCE = new MatchingService();
+    private final LostItemDao lostItemDao = new LostItemDao();
+    private final FoundItemDao foundItemDao = new FoundItemDao();
+    private final NotificationService notificationService = NotificationService.getInstance();
 
-    public MatchingService(LostItemRepository lostItemRepository,
-                           FoundItemRepository foundItemRepository,
-                           NotificationService notificationService) {
-        this.lostItemRepository = lostItemRepository;
-        this.foundItemRepository = foundItemRepository;
-        this.notificationService = notificationService;
+    private MatchingService() {}
+
+    public static MatchingService getInstance() {
+        return INSTANCE;
     }
 
     /**
      * Compute match score and comparison details between a lost item and a found item
      */
-    public MatchResultDto evaluateMatch(LostItem lost, FoundItem found) {
+    public MatchResult evaluateMatch(LostItem lost, FoundItem found) {
+        if (lost == null || found == null) {
+            return new MatchResult(lost, found, 0, false, 0, 0, 0, 0, "LOW", "Invalid items");
+        }
+
         boolean categoryMatch = (lost.getCategory() == found.getCategory());
         if (!categoryMatch) {
-            return new MatchResultDto(lost, found, 0, false, 0, 0, 0, 0, "LOW", "Categories do not match");
+            return new MatchResult(lost, found, 0, false, 0, 0, 0, 0, "LOW", "Categories do not match");
         }
 
         // 1. Name similarity (weight 25%)
@@ -45,7 +45,10 @@ public class MatchingService {
         int locScore = (int) Math.round(locSim * 100);
 
         // 3. Date consistency (weight 15%)
-        long deltaDays = ChronoUnit.DAYS.between(lost.getDateLost(), found.getDateFound());
+        long deltaDays = 0;
+        if (lost.getDateLost() != null && found.getDateFound() != null) {
+            deltaDays = ChronoUnit.DAYS.between(lost.getDateLost(), found.getDateFound());
+        }
         int dateScore;
         if (deltaDays >= 0 && deltaDays <= 3) {
             dateScore = 100;
@@ -54,23 +57,25 @@ public class MatchingService {
         } else if (deltaDays >= 11 && deltaDays <= 30) {
             dateScore = 40;
         } else if (deltaDays >= -2 && deltaDays < 0) {
-            dateScore = 20; // Allow slight date reporting discrepancy
+            dateScore = 20; // Slight reporting date discrepancy
         } else {
             dateScore = 10;
         }
 
         // 4. Color & Feature / Description attributes (weight 10%)
-        String combinedLostDesc = lost.getColorFeatures() + " " + lost.getDescription();
-        String combinedFoundDesc = found.getColorFeatures() + " " + found.getDescription();
+        String combinedLostDesc = (lost.getColorFeatures() != null ? lost.getColorFeatures() : "") + " " +
+                (lost.getDescription() != null ? lost.getDescription() : "");
+        String combinedFoundDesc = (found.getColorFeatures() != null ? found.getColorFeatures() : "") + " " +
+                (found.getDescription() != null ? found.getDescription() : "");
         double descSim = SimilarityUtil.jaccardSimilarity(combinedLostDesc, combinedFoundDesc);
         int featureScore = (int) Math.round(descSim * 100);
 
         // Total weighted score (Category is 30% baseline match)
         double totalWeighted = (30.0 * 1.0) +
-                               (25.0 * (nameScore / 100.0)) +
-                               (20.0 * (locScore / 100.0)) +
-                               (15.0 * (dateScore / 100.0)) +
-                               (10.0 * (featureScore / 100.0));
+                (25.0 * (nameScore / 100.0)) +
+                (20.0 * (locScore / 100.0)) +
+                (15.0 * (dateScore / 100.0)) +
+                (10.0 * (featureScore / 100.0));
 
         int totalScore = (int) Math.min(100, Math.round(totalWeighted));
 
@@ -84,140 +89,116 @@ public class MatchingService {
         }
 
         StringBuilder reason = new StringBuilder();
-        reason.append("Category match: ").append(lost.getCategory().name()).append(". ");
+        reason.append("Category match: ").append(lost.getCategory().getDisplayName()).append(". ");
         if (nameScore >= 70) reason.append("Strong title similarity (").append(nameScore).append("%). ");
         if (locScore >= 70) reason.append("Close campus proximity near ").append(found.getLocationFound()).append(". ");
         if (deltaDays >= 0 && deltaDays <= 5) reason.append("Discovered within ").append(deltaDays).append(" day(s) of reported loss. ");
         if (featureScore >= 50) reason.append("Matching color & keyword attributes.");
 
-        return new MatchResultDto(lost, found, totalScore, true, nameScore, locScore, dateScore, featureScore, matchStatus, reason.toString());
+        return new MatchResult(lost, found, totalScore, true, nameScore, locScore, dateScore, featureScore, matchStatus, reason.toString().trim());
     }
 
     /**
      * Scan when a new lost item is reported against all active found items
      */
-    public List<MatchResultDto> scanMatchesForLostItem(LostItem lostItem) {
-        List<FoundItem> availableFound = foundItemRepository.findByStatusOrderByCreatedAtDesc(FoundStatus.AVAILABLE);
-        List<MatchResultDto> matches = new ArrayList<>();
+    public List<MatchResult> scanMatchesForLostItem(LostItem lostItem) {
+        List<FoundItem> availableFound = foundItemDao.findByStatus(FoundStatus.AVAILABLE);
+        List<MatchResult> matches = new ArrayList<>();
 
         for (FoundItem found : availableFound) {
-            MatchResultDto match = evaluateMatch(lostItem, found);
+            MatchResult match = evaluateMatch(lostItem, found);
             if (match.getMatchScore() >= 60) {
                 matches.add(match);
 
                 // Notify lost item owner
-                notificationService.sendNotification(
-                        lostItem.getUser(),
-                        "Potential Match: " + lostItem.getItemName(),
-                        "A found item '" + found.getItemName() + "' at '" + found.getLocationFound() +
-                        "' matches your lost item report with " + match.getMatchScore() + "% confidence score. Check your dashboard to review and submit a claim.",
-                        NotificationType.POTENTIAL_MATCH,
-                        found.getFoundId()
-                );
-
-                // Notify found item reporter
-                if (!found.getUser().getUserId().equals(lostItem.getUser().getUserId())) {
+                if (lostItem.getUser() != null) {
                     notificationService.sendNotification(
-                            found.getUser(),
-                            "Matching Report for Found Item: " + found.getItemName(),
-                            "A student reported a lost '" + lostItem.getItemName() + "' matching the item you discovered (Score: " +
-                            match.getMatchScore() + "%).",
+                            lostItem.getUser(),
+                            "Potential Match: " + lostItem.getItemName(),
+                            "A found item '" + found.getItemName() + "' at '" + found.getLocationFound() +
+                                    "' matches your report with " + match.getMatchScore() + "% confidence. Review your dashboard to claim.",
                             NotificationType.POTENTIAL_MATCH,
-                            lostItem.getLostId()
+                            found.getFoundId()
                     );
                 }
             }
         }
 
-        matches.sort(Comparator.comparingInt(MatchResultDto::getMatchScore).reversed());
+        matches.sort(Comparator.comparingInt(MatchResult::getMatchScore).reversed());
         return matches;
     }
 
     /**
      * Scan when a new found item is reported against all active lost items
      */
-    public List<MatchResultDto> scanMatchesForFoundItem(FoundItem foundItem) {
-        List<LostItem> reportedLost = lostItemRepository.findByStatusOrderByCreatedAtDesc(LostStatus.REPORTED);
-        List<MatchResultDto> matches = new ArrayList<>();
+    public List<MatchResult> scanMatchesForFoundItem(FoundItem foundItem) {
+        List<LostItem> activeLost = lostItemDao.findByStatus(LostStatus.REPORTED);
+        List<MatchResult> matches = new ArrayList<>();
 
-        for (LostItem lost : reportedLost) {
-            MatchResultDto match = evaluateMatch(lost, foundItem);
+        for (LostItem lost : activeLost) {
+            MatchResult match = evaluateMatch(lost, foundItem);
             if (match.getMatchScore() >= 60) {
                 matches.add(match);
 
                 // Notify lost item owner
-                notificationService.sendNotification(
-                        lost.getUser(),
-                        "Potential Match Discovered!",
-                        "A found item '" + foundItem.getItemName() + "' discovered at '" + foundItem.getLocationFound() +
-                        "' matches your report for '" + lost.getItemName() + "' (" + match.getMatchScore() + "% match). Visit your dashboard to submit an ownership claim.",
-                        NotificationType.POTENTIAL_MATCH,
-                        foundItem.getFoundId()
-                );
-
-                // Notify found item reporter
-                if (!foundItem.getUser().getUserId().equals(lost.getUser().getUserId())) {
+                if (lost.getUser() != null) {
                     notificationService.sendNotification(
-                            foundItem.getUser(),
-                            "Possible Owner Identified",
-                            "A reported missing item '" + lost.getItemName() + "' matches the item you registered (" +
-                            match.getMatchScore() + "% match).",
+                            lost.getUser(),
+                            "Potential Match: " + lost.getItemName(),
+                            "A found item '" + foundItem.getItemName() + "' at '" + foundItem.getLocationFound() +
+                                    "' matches your lost item with " + match.getMatchScore() + "% confidence.",
                             NotificationType.POTENTIAL_MATCH,
-                            lost.getLostId()
+                            foundItem.getFoundId()
                     );
                 }
             }
         }
 
-        matches.sort(Comparator.comparingInt(MatchResultDto::getMatchScore).reversed());
+        matches.sort(Comparator.comparingInt(MatchResult::getMatchScore).reversed());
         return matches;
     }
 
     /**
-     * Get all active potential matches across the whole system
+     * Get all high and medium matches across all active lost & found items
      */
-    public List<MatchResultDto> getAllPotentialMatches() {
-        List<LostItem> reportedLost = lostItemRepository.findByStatusOrderByCreatedAtDesc(LostStatus.REPORTED);
-        List<FoundItem> availableFound = foundItemRepository.findByStatusOrderByCreatedAtDesc(FoundStatus.AVAILABLE);
+    public List<MatchResult> getAllActiveMatches() {
+        List<LostItem> activeLost = lostItemDao.findByStatus(LostStatus.REPORTED);
+        List<FoundItem> availableFound = foundItemDao.findByStatus(FoundStatus.AVAILABLE);
 
-        List<MatchResultDto> allMatches = new ArrayList<>();
-        for (LostItem lost : reportedLost) {
+        List<MatchResult> matches = new ArrayList<>();
+        for (LostItem lost : activeLost) {
             for (FoundItem found : availableFound) {
-                if (lost.getCategory() == found.getCategory()) {
-                    MatchResultDto match = evaluateMatch(lost, found);
-                    if (match.getMatchScore() >= 55) {
-                        allMatches.add(match);
-                    }
+                MatchResult match = evaluateMatch(lost, found);
+                if (match.getMatchScore() >= 60) {
+                    matches.add(match);
                 }
             }
         }
 
-        allMatches.sort(Comparator.comparingInt(MatchResultDto::getMatchScore).reversed());
-        return allMatches;
+        matches.sort(Comparator.comparingInt(MatchResult::getMatchScore).reversed());
+        return matches;
     }
 
     /**
-     * Get potential matches specifically relevant to a user
+     * Get all matches relevant to a specific user (their lost items matching found items)
      */
-    public List<MatchResultDto> getMatchesForUser(User user) {
-        List<LostItem> userLost = lostItemRepository.findByUserOrderByCreatedAtDesc(user);
-        List<FoundItem> availableFound = foundItemRepository.findByStatusOrderByCreatedAtDesc(FoundStatus.AVAILABLE);
+    public List<MatchResult> getMatchesForUser(User user) {
+        if (user == null) return new ArrayList<>();
+        List<LostItem> userLost = lostItemDao.findByUserId(user.getUserId());
+        List<FoundItem> availableFound = foundItemDao.findByStatus(FoundStatus.AVAILABLE);
 
-        List<MatchResultDto> userMatches = new ArrayList<>();
+        List<MatchResult> matches = new ArrayList<>();
         for (LostItem lost : userLost) {
-            if (lost.getStatus() == LostStatus.REPORTED) {
-                for (FoundItem found : availableFound) {
-                    if (lost.getCategory() == found.getCategory()) {
-                        MatchResultDto match = evaluateMatch(lost, found);
-                        if (match.getMatchScore() >= 50) {
-                            userMatches.add(match);
-                        }
-                    }
+            if (lost.getStatus() != LostStatus.REPORTED) continue;
+            for (FoundItem found : availableFound) {
+                MatchResult match = evaluateMatch(lost, found);
+                if (match.getMatchScore() >= 60) {
+                    matches.add(match);
                 }
             }
         }
 
-        userMatches.sort(Comparator.comparingInt(MatchResultDto::getMatchScore).reversed());
-        return userMatches;
+        matches.sort(Comparator.comparingInt(MatchResult::getMatchScore).reversed());
+        return matches;
     }
 }

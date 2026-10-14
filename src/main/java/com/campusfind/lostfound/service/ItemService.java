@@ -1,161 +1,128 @@
 package com.campusfind.lostfound.service;
 
-import com.campusfind.lostfound.dto.FoundItemRequest;
-import com.campusfind.lostfound.dto.LostItemRequest;
-import com.campusfind.lostfound.dto.MatchResultDto;
+import com.campusfind.lostfound.dao.FoundItemDao;
+import com.campusfind.lostfound.dao.LostItemDao;
 import com.campusfind.lostfound.model.*;
-import com.campusfind.lostfound.repository.FoundItemRepository;
-import com.campusfind.lostfound.repository.LostItemRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
-@Service
 public class ItemService {
 
-    private final LostItemRepository lostItemRepository;
-    private final FoundItemRepository foundItemRepository;
-    private final MatchingService matchingService;
-    private final NotificationService notificationService;
+    private static final ItemService INSTANCE = new ItemService();
+    private final LostItemDao lostItemDao = new LostItemDao();
+    private final FoundItemDao foundItemDao = new FoundItemDao();
+    private final MatchingService matchingService = MatchingService.getInstance();
+    private final List<Runnable> changeListeners = new ArrayList<>();
 
-    public ItemService(LostItemRepository lostItemRepository,
-                       FoundItemRepository foundItemRepository,
-                       MatchingService matchingService,
-                       NotificationService notificationService) {
-        this.lostItemRepository = lostItemRepository;
-        this.foundItemRepository = foundItemRepository;
-        this.matchingService = matchingService;
-        this.notificationService = notificationService;
+    private ItemService() {}
+
+    public static ItemService getInstance() {
+        return INSTANCE;
     }
 
-    @Transactional
-    public LostItem reportLost(LostItemRequest request, User user) {
+    public LostItem reportLostItem(User user, String itemName, Category category, String description,
+                                  LocalDate dateLost, String locationLost, String colorFeatures,
+                                  String contactPhone, String imageUrl) {
         LostItem item = new LostItem();
         item.setUser(user);
-        item.setItemName(request.getItemName().trim());
-        item.setCategory(request.getCategory());
-        item.setDescription(request.getDescription().trim());
-        item.setDateLost(request.getDateLost());
-        item.setLocationLost(request.getLocationLost().trim());
-        item.setColorFeatures(request.getColorFeatures().trim());
-        item.setImageUrl(request.getImageUrl());
-        item.setContactPhone(request.getContactPhone().trim());
+        item.setItemName(itemName);
+        item.setCategory(category);
+        item.setDescription(description);
+        item.setDateLost(dateLost);
+        item.setLocationLost(locationLost);
+        item.setColorFeatures(colorFeatures);
+        item.setContactPhone(contactPhone);
+        item.setImageUrl(imageUrl);
         item.setStatus(LostStatus.REPORTED);
 
-        LostItem saved = lostItemRepository.save(item);
+        LostItem saved = lostItemDao.save(item);
 
-        // Run smart match scanning in real time
+        // Run smart match scan
         matchingService.scanMatchesForLostItem(saved);
 
-        // Notify user of report registration
-        notificationService.sendNotification(
-                user,
-                "Lost Item Report Registered",
-                "Your report for '" + saved.getItemName() + "' was successfully recorded. The system is scanning for matching items.",
-                NotificationType.ADMIN_ALERT,
-                saved.getLostId()
-        );
-
+        notifyChangeListeners();
         return saved;
     }
 
-    @Transactional
-    public FoundItem reportFound(FoundItemRequest request, User user) {
+    public FoundItem reportFoundItem(User user, String itemName, Category category, String description,
+                                    LocalDate dateFound, String locationFound, String colorFeatures,
+                                    String storageLocation, String imageUrl) {
         FoundItem item = new FoundItem();
         item.setUser(user);
-        item.setItemName(request.getItemName().trim());
-        item.setCategory(request.getCategory());
-        item.setDescription(request.getDescription().trim());
-        item.setDateFound(request.getDateFound());
-        item.setLocationFound(request.getLocationFound().trim());
-        item.setColorFeatures(request.getColorFeatures().trim());
-        item.setImageUrl(request.getImageUrl());
-        item.setStorageLocation(request.getStorageLocation().trim());
+        item.setItemName(itemName);
+        item.setCategory(category);
+        item.setDescription(description);
+        item.setDateFound(dateFound);
+        item.setLocationFound(locationFound);
+        item.setColorFeatures(colorFeatures);
+        item.setStorageLocation(storageLocation);
+        item.setImageUrl(imageUrl);
         item.setStatus(FoundStatus.AVAILABLE);
 
-        FoundItem saved = foundItemRepository.save(item);
+        FoundItem saved = foundItemDao.save(item);
 
-        // Run smart match scanning in real time
+        // Run smart match scan
         matchingService.scanMatchesForFoundItem(saved);
 
-        notificationService.sendNotification(
-                user,
-                "Found Item Report Registered",
-                "Thank you for reporting found item '" + saved.getItemName() + "'. It is now cataloged in the system for owners to claim.",
-                NotificationType.ADMIN_ALERT,
-                saved.getFoundId()
-        );
-
+        notifyChangeListeners();
         return saved;
     }
 
-    public List<LostItem> searchLostItems(Category category, LostStatus status, String query, String location, LocalDate startDate, LocalDate endDate) {
-        String cleanQuery = (query != null && !query.trim().isEmpty()) ? query.trim() : null;
-        String cleanLocation = (location != null && !location.trim().isEmpty()) ? location.trim() : null;
-        return lostItemRepository.searchAndFilter(status, category, cleanQuery, cleanLocation, startDate, endDate);
+    public List<LostItem> getAllLostItems() {
+        return lostItemDao.findAll();
     }
 
-    public List<FoundItem> searchFoundItems(Category category, FoundStatus status, String query, String location, LocalDate startDate, LocalDate endDate) {
-        String cleanQuery = (query != null && !query.trim().isEmpty()) ? query.trim() : null;
-        String cleanLocation = (location != null && !location.trim().isEmpty()) ? location.trim() : null;
-        return foundItemRepository.searchAndFilter(status, category, cleanQuery, cleanLocation, startDate, endDate);
+    public List<LostItem> getLostItemsByUser(Long userId) {
+        return lostItemDao.findByUserId(userId);
+    }
+
+    public List<LostItem> searchLostItems(String query, Category category, LostStatus status, String location) {
+        return lostItemDao.searchAndFilter(query, category, status, location);
     }
 
     public LostItem getLostItemById(Long id) {
-        return lostItemRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Lost item report not found with ID: " + id));
+        return lostItemDao.findById(id);
+    }
+
+    public void updateLostStatus(Long lostId, LostStatus status) {
+        lostItemDao.updateStatus(lostId, status);
+        notifyChangeListeners();
+    }
+
+    public List<FoundItem> getAllFoundItems() {
+        return foundItemDao.findAll();
+    }
+
+    public List<FoundItem> getFoundItemsByUser(Long userId) {
+        return foundItemDao.findByUserId(userId);
+    }
+
+    public List<FoundItem> searchFoundItems(String query, Category category, FoundStatus status, String location) {
+        return foundItemDao.searchAndFilter(query, category, status, location);
     }
 
     public FoundItem getFoundItemById(Long id) {
-        return foundItemRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Found item report not found with ID: " + id));
+        return foundItemDao.findById(id);
     }
 
-    public List<LostItem> getUserLostItems(User user) {
-        return lostItemRepository.findByUserOrderByCreatedAtDesc(user);
+    public void updateFoundStatus(Long foundId, FoundStatus status) {
+        foundItemDao.updateStatus(foundId, status);
+        notifyChangeListeners();
     }
 
-    public List<FoundItem> getUserFoundItems(User user) {
-        return foundItemRepository.findByUserOrderByCreatedAtDesc(user);
+    public void addChangeListener(Runnable listener) {
+        changeListeners.add(listener);
     }
 
-    @Transactional
-    public LostItem updateLostStatus(Long id, LostStatus status, User user) {
-        LostItem item = getLostItemById(id);
-        if (!item.getUser().getUserId().equals(user.getUserId()) && user.getRole() != Role.ADMIN) {
-            throw new IllegalArgumentException("Unauthorized to modify this report");
+    private void notifyChangeListeners() {
+        for (Runnable listener : changeListeners) {
+            try {
+                listener.run();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
-        item.setStatus(status);
-        return lostItemRepository.save(item);
-    }
-
-    @Transactional
-    public FoundItem updateFoundStatus(Long id, FoundStatus status, User user) {
-        FoundItem item = getFoundItemById(id);
-        if (!item.getUser().getUserId().equals(user.getUserId()) && user.getRole() != Role.ADMIN) {
-            throw new IllegalArgumentException("Unauthorized to modify this report");
-        }
-        item.setStatus(status);
-        return foundItemRepository.save(item);
-    }
-
-    @Transactional
-    public void deleteLostItem(Long id, User user) {
-        LostItem item = getLostItemById(id);
-        if (!item.getUser().getUserId().equals(user.getUserId()) && user.getRole() != Role.ADMIN) {
-            throw new IllegalArgumentException("Unauthorized to delete this report");
-        }
-        lostItemRepository.delete(item);
-    }
-
-    @Transactional
-    public void deleteFoundItem(Long id, User user) {
-        FoundItem item = getFoundItemById(id);
-        if (!item.getUser().getUserId().equals(user.getUserId()) && user.getRole() != Role.ADMIN) {
-            throw new IllegalArgumentException("Unauthorized to delete this report");
-        }
-        foundItemRepository.delete(item);
     }
 }
