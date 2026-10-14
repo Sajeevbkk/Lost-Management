@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Lost and Found Management System | CampusFind</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+  <!-- Top Navigation Bar -->
+  <header class="navbar">
+    <div class="nav-container">
+      <a href="#home" class="brand-logo" onclick="App.navigate('home')">
+        <div class="brand-icon">
+          <i class="fas fa-search-location"></i>
+        </div>
+        <div class="brand-name">
+          <span class="main-title">CampusFind</span>
+          <span class="subtitle">Smart Lost &amp; Found System</span>
+        </div>
+      </a>
+
+      <!-- Desktop Navigation Menu -->
+      <ul class="nav-menu">
+        <li><a href="#home" class="nav-link active" data-view="home" onclick="App.navigate('home')"><i class="fas fa-home"></i> Home</a></li>
+        <li><a href="#lost" class="nav-link" data-view="lost" onclick="App.navigate('lost')"><i class="fas fa-search"></i> Lost Items</a></li>
+        <li><a href="#found" class="nav-link" data-view="found" onclick="App.navigate('found')"><i class="fas fa-box-open"></i> Found Items</a></li>
+        <li><a href="#matches" class="nav-link" data-view="matches" onclick="App.navigate('matches')"><i class="fas fa-magic"></i> Smart Matches</a></li>
+        <li><a href="#report" class="nav-link" data-view="report" onclick="App.navigate('report')"><i class="fas fa-plus-circle"></i> Report Item</a></li>
+        <li id="navUserDashLink" style="display: none;"><a href="#user-dashboard" class="nav-link" data-view="user-dashboard" onclick="App.navigate('user-dashboard')"><i class="fas fa-user-circle"></i> My Reports</a></li>
+        <li id="navAdminDashLink" style="display: none;"><a href="#admin-dashboard" class="nav-link" data-view="admin-dashboard" onclick="App.navigate('admin-dashboard')"><i class="fas fa-user-shield"></i> Admin Panel</a></li>
+        <li><a href="#about" class="nav-link" data-view="about" onclick="App.navigate('about')"><i class="fas fa-info-circle"></i> About</a></li>
+      </ul>
+
+      <!-- Action Area: Notification Bell & Sign In / Register & Mobile Toggle -->
+      <div class="nav-actions">
+        <button class="notif-bell-btn" title="Campus Alerts & Matches" onclick="App.openNotificationsModal()">
+          <i class="fas fa-bell"></i>
+          <span class="notif-badge" id="notifBadge" style="display: none;">0</span>
+        </button>
+        <div id="navAuthActions" style="display: flex; gap: 0.5rem;">
+          <!-- Dynamically populated by app.js based on auth session -->
+        </div>
+        <button class="mobile-toggle-btn" id="mobileNavToggle" title="Open Navigation Menu" onclick="App.toggleMobileMenu()">
+          <i class="fas fa-bars"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Slide-Down Drawer Menu -->
+    <div class="mobile-nav-drawer" id="mobileNavDrawer">
+      <a href="#home" class="nav-link" data-view="home" onclick="App.navigate('home'); App.toggleMobileMenu();"><i class="fas fa-home"></i> Home</a>
+      <a href="#lost" class="nav-link" data-view="lost" onclick="App.navigate('lost'); App.toggleMobileMenu();"><i class="fas fa-search"></i> Lost Items</a>
+      <a href="#found" class="nav-link" data-view="found" onclick="App.navigate('found'); App.toggleMobileMenu();"><i class="fas fa-box-open"></i> Found Items</a>
+      <a href="#matches" class="nav-link" data-view="matches" onclick="App.navigate('matches'); App.toggleMobileMenu();"><i class="fas fa-magic"></i> Smart Matches</a>
+      <a href="#report" class="nav-link" data-view="report" onclick="App.navigate('report'); App.toggleMobileMenu();"><i class="fas fa-plus-circle"></i> Report Item</a>
+      <a href="#user-dashboard" class="nav-link" id="mobileUserDashLink" style="display: none;" data-view="user-dashboard" onclick="App.navigate('user-dashboard'); App.toggleMobileMenu();"><i class="fas fa-user-circle"></i> My Reports</a>
+      <a href="#admin-dashboard" class="nav-link" id="mobileAdminDashLink" style="display: none;" data-view="admin-dashboard" onclick="App.navigate('admin-dashboard'); App.toggleMobileMenu();"><i class="fas fa-user-shield"></i> Admin Panel</a>
+      <a href="#about" class="nav-link" data-view="about" onclick="App.navigate('about'); App.toggleMobileMenu();"><i class="fas fa-info-circle"></i> About</a>
+    </div>
+  </header>
+
+  <!-- ==========================================================================
+       VIEW: HOME
+       ========================================================================== -->
+  <section id="view-home" class="view-section">
+    <!-- Hero Banner -->
+    <div class="hero-section">
+      <div class="hero-content">
+        <div class="hero-tag">
+          <i class="fas fa-shield-alt"></i> Official College Campus Lost &amp; Found Portal
+        </div>
+        <h1 class="hero-title">
+          Lost Something? <span class="highlight">Let's Find It Together!</span>
+        </h1>
+        <p class="hero-desc">
+          A centralized, intelligent recovery platform connecting students, faculty, and campus security. Report missing belongings, catalog discovered items, and discover AI-powered similarity matches across our university.
+        </p>
+
+        <div class="hero-buttons">
+          <button class="btn btn-lg btn-primary" onclick="App.navigate('report'); App.switchReportTab('lost');">
+            <i class="fas fa-exclamation-circle"></i> Report Lost Item
+          </button>
+          <button class="btn btn-lg btn-purple" onclick="App.navigate('report'); App.switchReportTab('found');">
+            <i class="fas fa-hand-holding-heart"></i> Report Found Item
+          </button>
+          <button class="btn btn-lg btn-outline" style="color: var(--white); border-color: rgba(255,255,255,0.4);" onclick="App.navigate('matches')">
+            <i class="fas fa-magic"></i> Explore Smart Matches
+          </button>
+        </div>
+
+        <!-- Quick Search Bar -->
+        <div class="hero-search-box">
+          <div class="input-group">
+            <i class="fas fa-search icon"></i>
+            <input type="text" id="heroSearchInput" placeholder="Item name, brand, or model...">
+          </div>
+          <div class="input-group">
+            <i class="fas fa-list icon"></i>
+            <select id="heroSearchType">
+              <option value="found">Discovered Items (Found)</option>
+              <option value="lost">Reported Lost Belongings</option>
+            </select>
+          </div>
+          <div class="input-group">
+            <i class="fas fa-tags icon"></i>
+            <select id="heroSearchCategory">
+              <option value="">All Categories</option>
+              <option value="ID_CARD">ID Card</option>
+              <option value="ELECTRONICS">Electronics</option>
+              <option value="BOOKS">Books &amp; Study</option>
+              <option value="BAGS">Bags &amp; Pouches</option>
+              <option value="WALLETS">Wallets &amp; Purses</option>
+              <option value="KEYS">Keys &amp; Fobs</option>
+              <option value="OTHER">Other Items</option>
+            </select>
+          </div>
+          <div class="input-group">
+            <i class="fas fa-map-marker-alt icon"></i>
+            <input type="text" id="heroSearchLocation" placeholder="Campus building / lab...">
+          </div>
+          <button class="btn btn-primary" id="heroSearchBtn">
+            <i class="fas fa-arrow-right"></i> Search
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Statistics Counters -->
+    <div class="stats-container">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon lost"><i class="fas fa-search"></i></div>
+          <div class="stat-info">
+            <h3 id="statTotalLost">0</h3>
+            <p>Reported Lost</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon found"><i class="fas fa-box-open"></i></div>
+          <div class="stat-info">
+            <h3 id="statTotalFound">0</h3>
+            <p>Discovered Found</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon returned"><i class="fas fa-check-double"></i></div>
+          <div class="stat-info">
+            <h3 id="statTotalReturned">0</h3>
+            <p>Successful Returns</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon pending"><i class="fas fa-hourglass-half"></i></div>
+          <div class="stat-info">
+            <h3 id="statPendingClaims">0</h3>
+            <p>Pending Claims</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recently Reported Items Section -->
+    <div class="main-content">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Recently Reported on Campus</h2>
+          <p class="section-subtitle">Real-time updates of lost belongings and items submitted to campus security desks.</p>
+        </div>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <button class="btn btn-sm btn-outline active" id="homeTabAll" onclick="App.filterHomeRecent('all')">All Items</button>
+          <button class="btn btn-sm btn-outline" id="homeTabLost" onclick="App.filterHomeRecent('lost')">Lost Belongings</button>
+          <button class="btn btn-sm btn-outline" id="homeTabFound" onclick="App.filterHomeRecent('found')">Found on Campus</button>
+        </div>
+      </div>
+
+      <div class="items-grid" id="homeRecentGrid">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <!-- Campus Workflow / How It Works -->
+      <div style="margin-top: 5rem; background: var(--white); border-radius: var(--radius-xl); padding: 3rem 2rem; border: 1px solid var(--slate-200); box-shadow: var(--shadow-sm);">
+        <div style="text-align: center; max-width: 650px; margin: 0 auto 3rem;">
+          <span class="badge badge-cat" style="margin-bottom: 0.5rem;">Streamlined Campus Pipeline</span>
+          <h2 style="font-size: 2rem; font-weight: 800; color: var(--slate-900);">How CampusFind Works</h2>
+          <p style="color: var(--slate-500);">A secure, non-automated 4-step recovery process engineered to protect your personal property and privacy.</p>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 2rem;">
+          <div style="text-align: center; padding: 1.5rem; background: var(--slate-50); border-radius: var(--radius-lg); border: 1px solid var(--slate-200);">
+            <div style="width: 58px; height: 58px; border-radius: var(--radius-full); background: var(--primary-100); color: var(--primary-700); font-size: 1.5rem; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem;">
+              <i class="fas fa-edit"></i>
+            </div>
+            <h4 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem;">1. Report Details</h4>
+            <p style="font-size: 0.875rem; color: var(--slate-600);">Submit descriptive details, category, date, and safe campus landmark where you misplaced or discovered the item.</p>
+          </div>
+
+          <div style="text-align: center; padding: 1.5rem; background: var(--slate-50); border-radius: var(--radius-lg); border: 1px solid var(--slate-200);">
+            <div style="width: 58px; height: 58px; border-radius: var(--radius-full); background: var(--purple-100); color: var(--purple-700); font-size: 1.5rem; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem;">
+              <i class="fas fa-brain"></i>
+            </div>
+            <h4 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem;">2. Smart Matching</h4>
+            <p style="font-size: 0.875rem; color: var(--slate-600);">Our multi-factor matching engine calculates similarity scores and alerts both reporters when confidence exceeds 60%.</p>
+          </div>
+
+          <div style="text-align: center; padding: 1.5rem; background: var(--slate-50); border-radius: var(--radius-lg); border: 1px solid var(--slate-200);">
+            <div style="width: 58px; height: 58px; border-radius: var(--radius-full); background: var(--warning-bg); color: #b45309; font-size: 1.5rem; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem;">
+              <i class="fas fa-fingerprint"></i>
+            </div>
+            <h4 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem;">3. Ownership Audit</h4>
+            <p style="font-size: 0.875rem; color: var(--slate-600);">Claimants furnish private unlisted details (serial numbers, internal contents). Campus administrators verify legitimacy.</p>
+          </div>
+
+          <div style="text-align: center; padding: 1.5rem; background: var(--slate-50); border-radius: var(--radius-lg); border: 1px solid var(--slate-200);">
+            <div style="width: 58px; height: 58px; border-radius: var(--radius-full); background: var(--success-bg); color: var(--success); font-size: 1.5rem; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem;">
+              <i class="fas fa-handshake"></i>
+            </div>
+            <h4 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem;">4. Safe Handover</h4>
+            <p style="font-size: 0.875rem; color: var(--slate-600);">Physical handover takes place at the Campus Security Desk with verified ID signoff. Status updates to Returned in real-time.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Campus Safe Collection Centers -->
+      <div style="margin-top: 3.5rem; background: linear-gradient(135deg, var(--slate-900), #1e293b); color: var(--white); border-radius: var(--radius-xl); padding: 2.5rem; display: flex; align-items: center; justify-content: space-between; gap: 2rem; flex-wrap: wrap;">
+        <div>
+          <span class="badge" style="background: rgba(255,255,255,0.15); color: #60a5fa; margin-bottom: 0.75rem;">Official Campus Drop-off Points</span>
+          <h3 style="font-size: 1.5rem; font-weight: 800; margin-bottom: 0.5rem;">Lost an Item? Check In-Person Collection Desks</h3>
+          <p style="color: #94a3b8; max-width: 650px;">Found items are safely deposited at: <strong>Main Security Desk (Admin Room 102)</strong>, <strong>Library Cloakroom Counter</strong>, and <strong>Student Affairs Office</strong>. Operating hours: 8:00 AM – 7:00 PM on all instructional days.</p>
+        </div>
+        <button class="btn btn-primary" onclick="App.navigate('found')">
+          Browse Safe Custody Items
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================================
+       VIEW: LOST ITEMS
+       ========================================================================== -->
+  <section id="view-lost" class="view-section" style="display: none;">
+    <div class="main-content">
+      <div class="section-header">
+        <div>
+          <h1 class="section-title">Reported Lost Items</h1>
+          <p class="section-subtitle">Search missing belongings reported by students and faculty across campus.</p>
+        </div>
+        <div style="display: flex; align-items: center; gap: 1rem;">
+          <span id="lostItemsCount" style="font-weight: 700; color: var(--slate-600);">Loading...</span>
+          <button class="btn btn-primary" onclick="App.navigate('report'); App.switchReportTab('lost');">
+            <i class="fas fa-plus"></i> Report Lost Item
+          </button>
+        </div>
+      </div>
+
+      <!-- Filter Bar & Category Pills -->
+      <div class="filter-bar">
+        <div class="filter-row-top">
+          <input type="text" id="lostFilterSearch" class="filter-input" placeholder="Search by name, keywords, brand..." oninput="App.loadLostItems()">
+          <select id="lostFilterCategory" class="filter-input" onchange="App.onCategorySelect('lost', this.value)">
+            <option value="">All Categories</option>
+            <option value="ID_CARD">ID Cards</option>
+            <option value="ELECTRONICS">Electronics</option>
+            <option value="BOOKS">Books &amp; Study</option>
+            <option value="BAGS">Bags &amp; Backpacks</option>
+            <option value="WALLETS">Wallets &amp; Purses</option>
+            <option value="KEYS">Keys &amp; Fobs</option>
+            <option value="OTHER">Other Items</option>
+          </select>
+          <input type="text" id="lostFilterLocation" class="filter-input" placeholder="Location (e.g. Library, Lab 2)" oninput="App.loadLostItems()">
+          <button class="btn btn-outline" onclick="App.resetFilters('lost')">
+            <i class="fas fa-redo"></i> Reset
+          </button>
+        </div>
+
+        <!-- Clickable Category Pills -->
+        <div class="category-pills" id="lostCategoryPills">
+          <span class="category-pill active" onclick="App.onPillClick('lost', '')">All Categories</span>
+          <span class="category-pill" onclick="App.onPillClick('lost', 'ID_CARD')"><i class="fas fa-id-badge"></i> ID Cards</span>
+          <span class="category-pill" onclick="App.onPillClick('lost', 'ELECTRONICS')"><i class="fas fa-laptop"></i> Electronics</span>
+          <span class="category-pill" onclick="App.onPillClick('lost', 'BOOKS')"><i class="fas fa-book"></i> Books</span>
+          <span class="category-pill" onclick="App.onPillClick('lost', 'BAGS')"><i class="fas fa-briefcase"></i> Bags</span>
+          <span class="category-pill" onclick="App.onPillClick('lost', 'WALLETS')"><i class="fas fa-wallet"></i> Wallets</span>
+          <span class="category-pill" onclick="App.onPillClick('lost', 'KEYS')"><i class="fas fa-key"></i> Keys</span>
+          <span class="category-pill" onclick="App.onPillClick('lost', 'OTHER')"><i class="fas fa-cube"></i> Other</span>
+        </div>
+      </div>
+
+      <!-- Items Grid -->
+      <div class="items-grid" id="lostItemsGrid">
+        <!-- Populated via JS -->
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================================
+       VIEW: FOUND ITEMS
+       ========================================================================== -->
+  <section id="view-found" class="view-section" style="display: none;">
+    <div class="main-content">
+      <div class="section-header">
+        <div>
+          <h1 class="section-title">Discovered &amp; Found Items</h1>
+          <p class="section-subtitle">Belongings retrieved on campus and stored safely awaiting verification.</p>
+        </div>
+        <div style="display: flex; align-items: center; gap: 1rem;">
+          <span id="foundItemsCount" style="font-weight: 700; color: var(--slate-600);">Loading...</span>
+          <button class="btn btn-purple" onclick="App.navigate('report'); App.switchReportTab('found');">
+            <i class="fas fa-plus"></i> Report Found Item
+          </button>
+        </div>
+      </div>
+
+      <!-- Filter Bar & Category Pills -->
+      <div class="filter-bar">
+        <div class="filter-row-top">
+          <input type="text" id="foundFilterSearch" class="filter-input" placeholder="Search by item title or features..." oninput="App.loadFoundItems()">
+          <select id="foundFilterCategory" class="filter-input" onchange="App.onCategorySelect('found', this.value)">
+            <option value="">All Categories</option>
+            <option value="ID_CARD">ID Cards</option>
+            <option value="ELECTRONICS">Electronics</option>
+            <option value="BOOKS">Books &amp; Study</option>
+            <option value="BAGS">Bags &amp; Backpacks</option>
+            <option value="WALLETS">Wallets &amp; Purses</option>
+            <option value="KEYS">Keys &amp; Fobs</option>
+            <option value="OTHER">Other Items</option>
+          </select>
+          <input type="text" id="foundFilterLocation" class="filter-input" placeholder="Campus location..." oninput="App.loadFoundItems()">
+          <button class="btn btn-outline" onclick="App.resetFilters('found')">
+            <i class="fas fa-redo"></i> Reset
+          </button>
+        </div>
+
+        <!-- Clickable Category Pills -->
+        <div class="category-pills" id="foundCategoryPills">
+          <span class="category-pill active" onclick="App.onPillClick('found', '')">All Categories</span>
+          <span class="category-pill" onclick="App.onPillClick('found', 'ID_CARD')"><i class="fas fa-id-badge"></i> ID Cards</span>
+          <span class="category-pill" onclick="App.onPillClick('found', 'ELECTRONICS')"><i class="fas fa-laptop"></i> Electronics</span>
+          <span class="category-pill" onclick="App.onPillClick('found', 'BOOKS')"><i class="fas fa-book"></i> Books</span>
+          <span class="category-pill" onclick="App.onPillClick('found', 'BAGS')"><i class="fas fa-briefcase"></i> Bags</span>
+          <span class="category-pill" onclick="App.onPillClick('found', 'WALLETS')"><i class="fas fa-wallet"></i> Wallets</span>
+          <span class="category-pill" onclick="App.onPillClick('found', 'KEYS')"><i class="fas fa-key"></i> Keys</span>
+          <span class="category-pill" onclick="App.onPillClick('found', 'OTHER')"><i class="fas fa-cube"></i> Other</span>
+        </div>
+      </div>
+
+      <!-- Items Grid -->
+      <div class="items-grid" id="foundItemsGrid">
+        <!-- Populated via JS -->
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================================
+       VIEW: SMART MATCHES
+       ========================================================================== -->
+  <section id="view-matches" class="view-section" style="display: none;">
+    <div class="main-content">
+      <div class="match-hero-card">
+        <div>
+          <span class="badge" style="background: rgba(255,255,255,0.15); color: #c084fc; margin-bottom: 0.5rem;"><i class="fas fa-bolt"></i> Intelligent Similarity Engine</span>
+          <h2 style="font-size: 1.85rem; font-weight: 800; margin-bottom: 0.5rem;">Smart Match Radar</h2>
+          <p style="color: #cbd5e1; max-width: 650px;">
+            The matching algorithm cross-references categories, titles (Levenshtein token distance), campus building proximity, reporting dates, and color features to pair lost reports with discovered items.
+          </p>
+        </div>
+        <div style="text-align: right; background: rgba(255,255,255,0.1); padding: 1.25rem; border-radius: var(--radius-lg); backdrop-filter: blur(8px);">
+          <div style="font-size: 2rem; font-weight: 800; color: #a7f3d0;">60%+</div>
+          <div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: #cbd5e1;">Confidence Threshold</div>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 1.5rem; background: var(--warning-bg); border: 1px solid #fde68a; border-radius: var(--radius-md); padding: 1rem; color: #92400e; font-size: 0.875rem; display: flex; align-items: center; gap: 0.75rem;">
+        <i class="fas fa-shield-alt fa-2x" style="color: var(--warning);"></i>
+        <div>
+          <strong>Strict Security Protocol:</strong> Potential matches do NOT automatically confirm ownership. You must file an Ownership Claim with confidential identifying features, which will be verified by Campus Administration.
+        </div>
+      </div>
+
+      <div id="matchesListContainer">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================================
+       VIEW: REPORT AN ITEM
+       ========================================================================== -->
+  <section id="view-report" class="view-section" style="display: none;">
+    <div class="main-content" style="max-width: 800px;">
+      <div style="text-align: center; margin-bottom: 2rem;">
+        <h1 class="section-title">Submit a Campus Report</h1>
+        <p class="section-subtitle">Select report type below to catalog a lost belonging or report a found item.</p>
+
+        <!-- Toggle Switch -->
+        <div style="display: inline-flex; background: var(--slate-200); padding: 0.35rem; border-radius: var(--radius-full); margin-top: 1.25rem;">
+          <button id="tabReportLost" class="btn btn-sm btn-primary" style="border-radius: var(--radius-full);" onclick="App.switchReportTab('lost')">
+            <i class="fas fa-search"></i> I Lost an Item
+          </button>
+          <button id="tabReportFound" class="btn btn-sm btn-outline" style="border-radius: var(--radius-full); border: none;" onclick="App.switchReportTab('found')">
+            <i class="fas fa-box-open"></i> I Found an Item
+          </button>
+        </div>
+      </div>
+
+      <!-- Form: Report Lost Item -->
+      <div id="formReportLost" style="background: var(--white); padding: 2rem; border-radius: var(--radius-xl); border: 1px solid var(--slate-200); box-shadow: var(--shadow-md);">
+        <h3 style="font-size: 1.25rem; font-weight: 700; color: var(--danger); margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.5rem;">
+          <i class="fas fa-exclamation-triangle"></i> Report Missing / Lost Belonging
+        </h3>
+
+        <div class="form-group">
+          <label class="form-label">Item Name <span class="required">*</span></label>
+          <input type="text" id="reportLostName" class="form-control" placeholder="e.g. Black Leather Wallet, Student ID Card, AirPods Pro">
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div class="form-group">
+            <label class="form-label">Category <span class="required">*</span></label>
+            <select id="reportLostCategory" class="form-control">
+              <option value="ID_CARD">ID Card</option>
+              <option value="ELECTRONICS">Electronics (Phone, Mouse, Laptop)</option>
+              <option value="BOOKS">Books &amp; Stationery</option>
+              <option value="BAGS">Bags &amp; Backpacks</option>
+              <option value="WALLETS">Wallets &amp; Pouches</option>
+              <option value="KEYS">Keys &amp; Fobs</option>
+              <option value="OTHER">Other Belongings</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date Lost <span class="required">*</span></label>
+            <input type="date" id="reportLostDate" class="form-control">
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div class="form-group">
+            <label class="form-label">Campus Location Where Lost <span class="required">*</span></label>
+            <input type="text" id="reportLostLocation" class="form-control" placeholder="e.g. Central Library 2nd floor, Science Hall 3">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Color &amp; Distinguishing Features <span class="required">*</span></label>
+            <input type="text" id="reportLostFeatures" class="form-control" placeholder="e.g. Matte black with white stitching">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Detailed Description <span class="required">*</span></label>
+          <textarea id="reportLostDesc" class="form-control" placeholder="Provide full context about where you were, stickers, or brand markings..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Contact Phone Number <span class="required">*</span></label>
+          <input type="text" id="reportLostContact" class="form-control" placeholder="+91 98765 43210">
+          <span class="form-help"><i class="fas fa-lock"></i> Masked publicly. Only authorized campus administration can view.</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Item Photograph (Optional)</label>
+          <div class="image-upload-preview-box" onclick="document.getElementById('reportLostImageFile').click()">
+            <img id="previewLostImg" style="display: none;" alt="Preview">
+            <div id="uploadPromptLost" style="text-align: center; color: var(--slate-500);">
+              <i class="fas fa-camera fa-2x" style="color: var(--primary-500); margin-bottom: 0.5rem;"></i><br>
+              <span>Click to select an image or photo</span>
+            </div>
+            <input type="file" id="reportLostImageFile" accept="image/*" style="display: none;" onchange="
+              const f = this.files[0];
+              if(f){
+                const r = new FileReader();
+                r.onload = e => {
+                  document.getElementById('previewLostImg').src = e.target.result;
+                  document.getElementById('previewLostImg').style.display = 'block';
+                  document.getElementById('uploadPromptLost').style.display = 'none';
+                };
+                r.readAsDataURL(f);
+              }
+            ">
+          </div>
+        </div>
+
+        <button class="btn btn-lg btn-primary" style="width: 100%; margin-top: 1rem;" onclick="App.submitLostReport()">
+          <i class="fas fa-paper-plane"></i> Submit Lost Report &amp; Scan Matches
+        </button>
+      </div>
+
+      <!-- Form: Report Found Item -->
+      <div id="formReportFound" style="display: none; background: var(--white); padding: 2rem; border-radius: var(--radius-xl); border: 1px solid var(--slate-200); box-shadow: var(--shadow-md);">
+        <h3 style="font-size: 1.25rem; font-weight: 700; color: var(--purple-700); margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.5rem;">
+          <i class="fas fa-hand-holding-heart"></i> Report Discovered Belonging on Campus
+        </h3>
+
+        <div class="form-group">
+          <label class="form-label">Item Name <span class="required">*</span></label>
+          <input type="text" id="reportFoundName" class="form-control" placeholder="e.g. Set of Keys, Casio Calculator, Water Bottle">
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div class="form-group">
+            <label class="form-label">Category <span class="required">*</span></label>
+            <select id="reportFoundCategory" class="form-control">
+              <option value="ID_CARD">ID Card</option>
+              <option value="ELECTRONICS">Electronics (Phone, Mouse, Laptop)</option>
+              <option value="BOOKS">Books &amp; Stationery</option>
+              <option value="BAGS">Bags &amp; Backpacks</option>
+              <option value="WALLETS">Wallets &amp; Pouches</option>
+              <option value="KEYS">Keys &amp; Fobs</option>
+              <option value="OTHER">Other Belongings</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date Discovered <span class="required">*</span></label>
+            <input type="date" id="reportFoundDate" class="form-control">
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div class="form-group">
+            <label class="form-label">Location Discovered <span class="required">*</span></label>
+            <input type="text" id="reportFoundLocation" class="form-control" placeholder="e.g. Cafeteria seating, Sports Ground B">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Color &amp; Visible Features <span class="required">*</span></label>
+            <input type="text" id="reportFoundFeatures" class="form-control" placeholder="e.g. Navy blue with white logo">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Current Safe Storage / Collection Desk <span class="required">*</span></label>
+          <input type="text" id="reportFoundStorage" class="form-control" placeholder="e.g. Main Security Desk Room 102, Library Helpdesk" value="Campus Security Desk - Admin Block Room 102">
+          <span class="form-help">Where can the rightful owner or admin find this item safely stored?</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Item Description <span class="required">*</span></label>
+          <textarea id="reportFoundDesc" class="form-control" placeholder="Describe the item condition, where found... Do NOT disclose secret serial numbers or private ID numbers."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Item Photograph (Recommended)</label>
+          <div class="image-upload-preview-box" onclick="document.getElementById('reportFoundImageFile').click()">
+            <img id="previewFoundImg" style="display: none;" alt="Preview">
+            <div id="uploadPromptFound" style="text-align: center; color: var(--slate-500);">
+              <i class="fas fa-camera fa-2x" style="color: var(--purple-600); margin-bottom: 0.5rem;"></i><br>
+              <span>Click to select image file</span>
+            </div>
+            <input type="file" id="reportFoundImageFile" accept="image/*" style="display: none;" onchange="
+              const f = this.files[0];
+              if(f){
+                const r = new FileReader();
+                r.onload = e => {
+                  document.getElementById('previewFoundImg').src = e.target.result;
+                  document.getElementById('previewFoundImg').style.display = 'block';
+                  document.getElementById('uploadPromptFound').style.display = 'none';
+                };
+                r.readAsDataURL(f);
+              }
+            ">
+          </div>
+        </div>
+
+        <button class="btn btn-lg btn-purple" style="width: 100%; margin-top: 1rem;" onclick="App.submitFoundReport()">
+          <i class="fas fa-check-circle"></i> Catalog Found Item
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================================
+       VIEW: USER DASHBOARD
+       ========================================================================== -->
+  <section id="view-user-dashboard" class="view-section" style="display: none;">
+    <div class="main-content">
+      <!-- User Profile Header Banner -->
+      <div class="dashboard-user-bar">
+        <div class="user-bar-profile">
+          <div class="user-avatar-lg">
+            <i class="fas fa-user-graduate"></i>
+          </div>
+          <div>
+            <span class="badge" style="background: rgba(255,255,255,0.2); color: var(--white); margin-bottom: 0.4rem;">Campus Member Dashboard</span>
+            <h2 id="userDashName" style="font-size: 1.75rem; font-weight: 800; line-height: 1.2;">User Name</h2>
+            <p id="userDashDetails" style="color: #cbd5e1; font-size: 0.9rem;">Student • Dept • ID</p>
+          </div>
+        </div>
+        <div>
+          <button class="btn btn-primary" onclick="App.navigate('report')">
+            <i class="fas fa-plus"></i> New Report
+          </button>
+        </div>
+      </div>
+
+      <!-- Dashboard Tabs -->
+      <div class="dashboard-tabs">
+        <button class="dash-tab-btn user-dash-tab active" data-tab="my-lost" onclick="App.switchUserDashTab('my-lost')">
+          <i class="fas fa-search"></i> My Lost Reports
+        </button>
+        <button class="dash-tab-btn user-dash-tab" data-tab="my-found" onclick="App.switchUserDashTab('my-found')">
+          <i class="fas fa-box-open"></i> My Found Reports
+        </button>
+        <button class="dash-tab-btn user-dash-tab" data-tab="my-claims" onclick="App.switchUserDashTab('my-claims')">
+          <i class="fas fa-clipboard-check"></i> My Claims &amp; Recovery
+        </button>
+        <button class="dash-tab-btn user-dash-tab" data-tab="my-matches" onclick="App.switchUserDashTab('my-matches')">
+          <i class="fas fa-magic"></i> Possible Matches
+        </button>
+        <button class="dash-tab-btn user-dash-tab" data-tab="my-notifs" onclick="App.switchUserDashTab('my-notifs')">
+          <i class="fas fa-bell"></i> Notifications
+        </button>
+      </div>
+
+      <!-- Dynamic Content Area -->
+      <div id="userDashContent">
+        <!-- Rendered by JS -->
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================================
+       VIEW: ADMIN DASHBOARD
+       ========================================================================== -->
+  <section id="view-admin-dashboard" class="view-section" style="display: none;">
+    <div class="main-content">
+      <div class="dashboard-user-bar" style="background: linear-gradient(135deg, #1e1b4b, #312e81);">
+        <div class="user-bar-profile">
+          <div class="user-avatar-lg" style="background: rgba(124, 58, 237, 0.4);">
+            <i class="fas fa-shield-alt"></i>
+          </div>
+          <div>
+            <span class="badge" style="background: #10b981; color: var(--white); margin-bottom: 0.4rem;">CAMPUS SECURITY &amp; ADMINISTRATION</span>
+            <h2 style="font-size: 1.75rem; font-weight: 800; line-height: 1.2;">Central Administration Console</h2>
+            <p style="color: #cbd5e1; font-size: 0.9rem;">Review ownership claims, verify identifying evidence, and log physical handovers.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- KPI metrics -->
+      <div class="stats-grid" style="margin-bottom: 2rem;">
+        <div class="stat-card">
+          <div class="stat-icon lost"><i class="fas fa-search"></i></div>
+          <div class="stat-info">
+            <h3 id="adminStatLost">0</h3>
+            <p>Lost Items</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon found"><i class="fas fa-box-open"></i></div>
+          <div class="stat-info">
+            <h3 id="adminStatFound">0</h3>
+            <p>Found Items</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon pending"><i class="fas fa-gavel"></i></div>
+          <div class="stat-info">
+            <h3 id="adminStatClaims">0</h3>
+            <p>Claims Under Audit</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon returned"><i class="fas fa-users"></i></div>
+          <div class="stat-info">
+            <h3 id="adminStatUsers">0</h3>
+            <p>Campus Users</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Admin Navigation Tabs -->
+      <div class="dashboard-tabs">
+        <button class="dash-tab-btn admin-tab-btn active" data-tab="claims" onclick="App.switchAdminTab('claims')">
+          <i class="fas fa-balance-scale"></i> Ownership Claims Audit
+        </button>
+        <button class="dash-tab-btn admin-tab-btn" data-tab="reports" onclick="App.switchAdminTab('reports')">
+          <i class="fas fa-list-alt"></i> All Campus Reports
+        </button>
+        <button class="dash-tab-btn admin-tab-btn" data-tab="returns" onclick="App.switchAdminTab('returns')">
+          <i class="fas fa-history"></i> Handover &amp; Return Logs
+        </button>
+        <button class="dash-tab-btn admin-tab-btn" data-tab="users" onclick="App.switchAdminTab('users')">
+          <i class="fas fa-users"></i> User Accounts
+        </button>
+      </div>
+
+      <div id="adminTabContent">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================================
+       VIEW: ABOUT
+       ========================================================================== -->
+  <section id="view-about" class="view-section" style="display: none;">
+    <div class="main-content" style="max-width: 900px;">
+      <div style="background: var(--white); padding: 3rem 2.5rem; border-radius: var(--radius-xl); border: 1px solid var(--slate-200); box-shadow: var(--shadow-sm);">
+        <span class="badge badge-cat" style="margin-bottom: 0.75rem;">University Project</span>
+        <h1 style="font-size: 2.25rem; font-weight: 800; color: var(--slate-900); margin-bottom: 1.25rem;">Smart Lost and Found Management System</h1>
+        <p style="font-size: 1.1rem; color: var(--slate-600); line-height: 1.7; margin-bottom: 1.5rem;">
+          Designed and engineered specifically for university campuses, <strong>CampusFind</strong> eliminates manual circulars and fragmented lost item announcements with a centralized, data-driven system.
+        </p>
+
+        <h3 style="font-size: 1.35rem; font-weight: 700; margin: 2rem 0 1rem; color: var(--primary-900);">System Highlights</h3>
+        <ul style="list-style-type: none; display: flex; flex-direction: column; gap: 0.85rem; font-size: 0.95rem; color: var(--slate-700);">
+          <li><i class="fas fa-check-circle" style="color: var(--success); margin-right: 0.5rem;"></i> <strong>Zero Sensitive Contact Leakage:</strong> Phone numbers and ID proofs are masked from public view. Only secure campus collection points are visible publicly.</li>
+          <li><i class="fas fa-check-circle" style="color: var(--success); margin-right: 0.5rem;"></i> <strong>Intelligent Matching Algorithm:</strong> Automated similarity scoring comparing category, text tokens, date deltas, and landmark proximity.</li>
+          <li><i class="fas fa-check-circle" style="color: var(--success); margin-right: 0.5rem;"></i> <strong>Multi-tier Verification Pipeline:</strong> Mandatory non-public proof inspection by campus administrators before handovers are approved.</li>
+          <li><i class="fas fa-check-circle" style="color: var(--success); margin-right: 0.5rem;"></i> <strong>Full MySQL &amp; Spring Boot Architecture:</strong> High-performance Spring Boot 3.x REST API layer paired with persistent relational MySQL storage.</li>
+        </ul>
+
+        <div style="margin-top: 2.5rem; padding: 1.5rem; background: var(--slate-50); border-radius: var(--radius-lg); border: 1px solid var(--slate-200);">
+          <h4 style="font-size: 1.05rem; font-weight: 700; color: var(--slate-900); margin-bottom: 0.5rem;">Campus Safety &amp; In-Person Assistance</h4>
+          <p style="font-size: 0.875rem; color: var(--slate-600);">If you have lost government identification cards, passports, or emergency medication, report in-person immediately to the <strong>Campus Security Desk (Admin Block Room 102)</strong> or call <strong>+91 98765 00001</strong>.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================================
+       MODALS
+       ========================================================================== -->
+
+  <!-- Sign In Modal -->
+  <div class="modal-backdrop" id="loginModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Sign In to CampusFind</h3>
+        <button class="modal-close-btn" onclick="App.closeModal('loginModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <!-- Quick Demo Login Helpers -->
+        <div style="background: var(--purple-50); border: 1px solid var(--purple-100); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.25rem;">
+          <span style="font-size: 0.775rem; font-weight: 700; text-transform: uppercase; color: var(--purple-700); letter-spacing: 0.05em; display: block; margin-bottom: 0.5rem;">Quick 1-Click Demo Logins:</span>
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <button class="btn btn-sm btn-outline-primary" onclick="App.quickDemoLogin('student')">
+              <i class="fas fa-user-graduate"></i> Student (Rahul)
+            </button>
+            <button class="btn btn-sm btn-outline" onclick="App.quickDemoLogin('staff')">
+              <i class="fas fa-chalkboard-teacher"></i> Faculty (Dr. Anil)
+            </button>
+            <button class="btn btn-sm btn-purple" onclick="App.quickDemoLogin('admin')">
+              <i class="fas fa-user-shield"></i> Security Admin
+            </button>
+          </div>
+        </div>
+
+        <form onsubmit="event.preventDefault(); App.login(document.getElementById('loginEmail').value, document.getElementById('loginPassword').value);">
+          <div class="form-group">
+            <label class="form-label">College Email Address</label>
+            <input type="email" id="loginEmail" class="form-control" placeholder="name@college.edu" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <input type="password" id="loginPassword" class="form-control" placeholder="••••••••" required>
+          </div>
+          <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;">Sign In</button>
+        </form>
+      </div>
+      <div class="modal-footer" style="justify-content: center;">
+        <span style="font-size: 0.85rem; color: var(--slate-500);">Don't have an account? <a href="javascript:void(0)" onclick="App.closeModal('loginModal'); App.openModal('registerModal');">Register now</a></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Register Modal -->
+  <div class="modal-backdrop" id="registerModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Campus User Registration</h3>
+        <button class="modal-close-btn" onclick="App.closeModal('registerModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form onsubmit="
+          event.preventDefault();
+          App.register({
+            fullName: document.getElementById('regName').value,
+            collegeEmail: document.getElementById('regEmail').value,
+            campusId: document.getElementById('regCampusId').value,
+            department: document.getElementById('regDept').value,
+            phoneNumber: document.getElementById('regPhone').value,
+            password: document.getElementById('regPassword').value,
+            role: document.getElementById('regRole').value
+          });
+        ">
+          <div class="form-group">
+            <label class="form-label">Full Name <span class="required">*</span></label>
+            <input type="text" id="regName" class="form-control" placeholder="e.g. Rahul Sharma" required>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">College Email <span class="required">*</span></label>
+              <input type="email" id="regEmail" class="form-control" placeholder="name@college.edu" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Student or Staff ID <span class="required">*</span></label>
+              <input type="text" id="regCampusId" class="form-control" placeholder="e.g. CS-2024-042" required>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Department <span class="required">*</span></label>
+              <input type="text" id="regDept" class="form-control" placeholder="e.g. Computer Science" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Phone Number <span class="required">*</span></label>
+              <input type="text" id="regPhone" class="form-control" placeholder="+91 98765 00000" required>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Password <span class="required">*</span></label>
+              <input type="password" id="regPassword" class="form-control" placeholder="Minimum 6 characters" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Account Role <span class="required">*</span></label>
+              <select id="regRole" class="form-control">
+                <option value="STUDENT">Student</option>
+                <option value="STAFF">Faculty / Staff</option>
+                <option value="ADMIN">Campus Administrator</option>
+              </select>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;">Create Campus Account</button>
+        </form>
+      </div>
+      <div class="modal-footer" style="justify-content: center;">
+        <span style="font-size: 0.85rem; color: var(--slate-500);">Already registered? <a href="javascript:void(0)" onclick="App.closeModal('registerModal'); App.openModal('loginModal');">Sign in here</a></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ownership Claim Modal -->
+  <div class="modal-backdrop" id="claimModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <h3>File Ownership Claim</h3>
+          <span style="font-size: 0.85rem; color: var(--purple-700); font-weight: 600;" id="claimItemNameDisplay">Item Name</span>
+        </div>
+        <button class="modal-close-btn" onclick="App.closeModal('claimModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="claimFoundId">
+
+        <div style="background: var(--warning-bg); border-left: 4px solid var(--warning); padding: 0.75rem 1rem; border-radius: var(--radius-sm); font-size: 0.825rem; color: #92400e; margin-bottom: 1.25rem;">
+          <strong>Ownership Verification Required:</strong> Please disclose private identifiers (e.g. wallpaper description, inner pouch cards, engraved marks, serial number) not listed publicly. Campus security will cross-examine these details.
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Unique Secret Identifying Marks <span class="required">*</span></label>
+          <textarea id="claimUniqueFeatures" class="form-control" placeholder="Disclose specific private items inside (e.g., card numbers, unique stickers, key chain marks, lock code, purchase invoice)..."></textarea>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div class="form-group">
+            <label class="form-label">Approximate Date of Loss <span class="required">*</span></label>
+            <input type="date" id="claimApproxDate" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Approximate Location of Loss <span class="required">*</span></label>
+            <input type="text" id="claimApproxLoc" class="form-control" placeholder="e.g. Science Library 2nd row">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Item Description &amp; Appearance Proof <span class="required">*</span></label>
+          <textarea id="claimDescProof" class="form-control" placeholder="Detailed description of your item..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Supporting Verification Notes (Optional)</label>
+          <input type="text" id="claimSupportingProof" class="form-control" placeholder="e.g. I can present my college ID or purchase receipt upon physical inspection">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="App.closeModal('claimModal')">Cancel</button>
+        <button class="btn btn-purple" onclick="App.submitClaim()">
+          <i class="fas fa-paper-plane"></i> Submit Claim to Administration
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Item Details Modal -->
+  <div class="modal-backdrop" id="itemDetailsModal">
+    <div class="modal-card modal-card-lg">
+      <div class="modal-header">
+        <div>
+          <h3 id="itemDetailModalTitle">Item Specifications</h3>
+          <span id="itemDetailModalSubtitle" style="font-size: 0.85rem; color: var(--slate-500);">Details</span>
+        </div>
+        <button class="modal-close-btn" onclick="App.closeModal('itemDetailsModal')">&times;</button>
+      </div>
+      <div class="modal-body" id="itemDetailModalBody">
+        <!-- Dynamically injected via App.viewItemDetails -->
+      </div>
+      <div class="modal-footer" id="itemDetailModalFooter">
+        <button class="btn btn-outline" onclick="App.closeModal('itemDetailsModal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Handover Modal for Admin -->
+  <div class="modal-backdrop" id="handoverModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Record Physical Handover</h3>
+        <button class="modal-close-btn" onclick="App.closeModal('handoverModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="handoverClaimId">
+        <p style="margin-bottom: 0.75rem; font-size: 0.9rem;">
+          Item: <strong id="handoverItemNameDisplay"></strong><br>
+          Rightful Claimant: <strong id="handoverClaimantDisplay"></strong>
+        </p>
+
+        <div class="form-group">
+          <label class="form-label">Administrator Handover Notes <span class="required">*</span></label>
+          <textarea id="handoverNotesInput" class="form-control" placeholder="e.g. Physical student ID verified in person. Claimant signed security logbook. Handover completed safely."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="App.closeModal('handoverModal')">Cancel</button>
+        <button class="btn btn-success" onclick="App.submitHandover()">
+          <i class="fas fa-check-double"></i> Mark as Returned &amp; Close Case
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Global Footer -->
+  <footer class="footer">
+    <div class="footer-container">
+      <div>
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+          <div class="brand-icon" style="width: 34px; height: 34px; font-size: 1rem;">
+            <i class="fas fa-search-location"></i>
+          </div>
+          <span style="font-weight: 800; font-size: 1.15rem; color: var(--white);">CampusFind</span>
+        </div>
+        <p style="font-size: 0.875rem; color: #94a3b8; line-height: 1.6;">
+          Centralized Lost and Found Management System designed for university students, faculty, and administrative staff to ensure swift, secure recovery of misplaced belongings.
+        </p>
+      </div>
+
+      <div>
+        <h4>Quick Navigation</h4>
+        <ul class="footer-links">
+          <li><a href="#home" onclick="App.navigate('home')">Home</a></li>
+          <li><a href="#lost" onclick="App.navigate('lost')">Reported Lost Items</a></li>
+          <li><a href="#found" onclick="App.navigate('found')">Cataloged Found Items</a></li>
+          <li><a href="#matches" onclick="App.navigate('matches')">Smart Match Radar</a></li>
+          <li><a href="#report" onclick="App.navigate('report')">Submit a Report</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h4>Campus Desks</h4>
+        <ul class="footer-links">
+          <li><a href="javascript:void(0)">Main Security Post (Room 102)</a></li>
+          <li><a href="javascript:void(0)">Central Library Reception</a></li>
+          <li><a href="javascript:void(0)">Student Affairs Helpdesk</a></li>
+          <li><a href="javascript:void(0)">Sports Complex Reception</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h4>Emergency Contact</h4>
+        <p style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 0.5rem;"><i class="fas fa-phone-alt" style="color: #60a5fa;"></i> Security Helpline: +91 98765 00001</p>
+        <p style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 0.5rem;"><i class="fas fa-envelope" style="color: #c084fc;"></i> lostfound@college.edu</p>
+        <p style="font-size: 0.85rem; color: #94a3b8;"><i class="fas fa-clock" style="color: #a7f3d0;"></i> Hours: 8:00 AM – 7:00 PM (Mon-Sat)</p>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <span>&copy; 2026 CampusFind. Smart Lost and Found Management System. Built with Spring Boot &amp; MySQL.</span>
+      <span>Designed with College Blue, White, &amp; Purple Theme</span>
+    </div>
+  </footer>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
